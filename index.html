@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#22c55e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="卫生检查">
+<title>卫生检查</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="icon" type="image/png" href="./icon-192.png">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ 视图1：检查 ============ -->
+  <section id="view-check" class="view active">
+    <header class="topbar">
+      <button class="date-arrow" id="check-prev" aria-label="前一天">‹</button>
+      <div class="date-center">
+        <div class="date-main" id="check-date-text">今天</div>
+        <div class="date-sub" id="check-week-text">--</div>
+      </div>
+      <button class="date-arrow" id="check-next" aria-label="后一天">›</button>
+    </header>
+
+    <div class="check-summary" id="check-summary">
+      <div class="sum-item"><span class="sum-num" id="sum-checked">0</span><span class="sum-label">已检查区域</span></div>
+      <div class="sum-divider"></div>
+      <div class="sum-item"><span class="sum-num" id="sum-deduct">0</span><span class="sum-label">今日扣分</span></div>
+      <div class="sum-divider"></div>
+      <div class="sum-item"><span class="sum-num" id="sum-total">0</span><span class="sum-label">总区域</span></div>
+    </div>
+
+    <div class="toolbar-row">
+      <button class="btn-ghost" id="btn-clean-all">✔ 今日全部干净</button>
+      <button class="btn-ghost" id="btn-undo-all">撤销全部</button>
+    </div>
+
+    <div class="list" id="check-class-list"></div>
+    <div class="empty" id="check-empty" hidden>
+      <div class="empty-emoji">🏫</div>
+      <p>还没有班级</p>
+      <p class="empty-sub">去「设置」里添加班级和负责区域吧</p>
+      <button class="btn-primary" id="empty-go-settings">去添加班级</button>
+    </div>
+  </section>
+
+  <!-- ============ 视图2：记录 ============ -->
+  <section id="view-records" class="view">
+    <header class="topbar">
+      <button class="date-arrow" id="rec-prev" aria-label="前一天">‹</button>
+      <div class="date-center">
+        <div class="date-main" id="rec-date-text">今天</div>
+        <div class="date-sub" id="rec-week-text">--</div>
+      </div>
+      <button class="date-arrow" id="rec-next" aria-label="后一天">›</button>
+    </header>
+    <div class="list" id="rec-list"></div>
+    <div class="empty" id="rec-empty" hidden>
+      <div class="empty-emoji">📋</div>
+      <p>当天暂无检查记录</p>
+    </div>
+  </section>
+
+  <!-- ============ 视图3：统计 ============ -->
+  <section id="view-stats" class="view">
+    <header class="topbar">
+      <div class="date-center"><div class="date-main">统计</div></div>
+    </header>
+    <div class="segmented" id="stats-range">
+      <button data-range="week" class="seg active">本周</button>
+      <button data-range="month" class="seg">本月</button>
+      <button data-range="all" class="seg">全部</button>
+    </div>
+
+    <div class="stat-cards">
+      <div class="stat-card"><div class="stat-val" id="stat-days">0</div><div class="stat-lbl">检查天数</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-total-deduct">0</div><div class="stat-lbl">总扣分</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-avg">0</div><div class="stat-lbl">日均扣分</div></div>
+    </div>
+
+    <div class="rank-head">班级扣分排名</div>
+    <div class="list" id="stats-rank-list"></div>
+    <div class="empty" id="stats-empty" hidden>
+      <div class="empty-emoji">📊</div>
+      <p>暂无统计数据</p>
+    </div>
+  </section>
+
+  <!-- ============ 视图4：设置 ============ -->
+  <section id="view-settings" class="view">
+    <header class="topbar">
+      <div class="date-center"><div class="date-main">设置</div></div>
+    </header>
+
+    <div class="settings-group">
+      <div class="group-title">班级与区域</div>
+      <div class="list" id="class-manage-list"></div>
+      <button class="btn-add" id="btn-add-class">＋ 添加班级</button>
+    </div>
+
+    <div class="settings-group">
+      <div class="group-title">扣分规则</div>
+      <div class="rule-row">
+        <span>一般扣分</span>
+        <div class="stepper">
+          <button data-step="fair" data-dir="-1">−</button>
+          <span id="rule-fair">1</span>
+          <button data-step="fair" data-dir="1">＋</button>
+        </div>
+      </div>
+      <div class="rule-row">
+        <span>差 扣分</span>
+        <div class="stepper">
+          <button data-step="dirty" data-dir="-1">−</button>
+          <span id="rule-dirty">2</span>
+          <button data-step="dirty" data-dir="1">＋</button>
+        </div>
+      </div>
+      <div class="rule-row">
+        <span>满分</span>
+        <div class="stepper">
+          <button data-step="full" data-dir="-5">−5</button>
+          <span id="rule-full">100</span>
+          <button data-step="full" data-dir="5">＋5</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="group-title">数据</div>
+      <div class="cell-btn" id="btn-export">📤 导出数据</div>
+      <div class="cell-btn" id="btn-copy">📋 复制数据到剪贴板</div>
+      <div class="cell-btn" id="btn-import">📥 导入数据</div>
+      <div class="cell-btn danger" id="btn-clear-all">🗑 清空全部数据</div>
+      <input type="file" id="import-file" accept="application/json,.json" hidden>
+    </div>
+
+    <div class="settings-group">
+      <div class="group-title">使用说明</div>
+      <div class="help-text">
+        <p><b>添加到主屏幕（像 App 一样用）：</b></p>
+        <p>· iPhone：Safari 打开 → 分享按钮 → 「添加到主屏幕」</p>
+        <p>· 安卓：浏览器菜单 → 「添加到主屏幕 / 安装应用」</p>
+        <p>之后从桌面图标点开即用，可离线。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 底部 Tab ============ -->
+  <nav id="tabbar">
+    <button class="tab active" data-view="check"><span class="tab-ico">✔</span><span>检查</span></button>
+    <button class="tab" data-view="records"><span class="tab-ico">📋</span><span>记录</span></button>
+    <button class="tab" data-view="stats"><span class="tab-ico">📊</span><span>统计</span></button>
+    <button class="tab" data-view="settings"><span class="tab-ico">⚙</span><span>设置</span></button>
+  </nav>
+</div>
+
+<!-- ============ 弹层：区域状态选择 ============ -->
+<div class="mask" id="area-mask" hidden></div>
+<div class="sheet" id="area-sheet" hidden>
+  <div class="sheet-title" id="area-sheet-title">教室</div>
+  <div class="status-picker" id="area-status-picker">
+    <button data-status="clean" class="status-opt"><span class="dot" style="background:#22c55e"></span>干净<span class="status-deduct">不扣分</span></button>
+    <button data-status="fair" class="status-opt"><span class="dot" style="background:#f59e0b"></span>一般<span class="status-deduct" id="opt-fair-deduct">-1</span></button>
+    <button data-status="dirty" class="status-opt"><span class="dot" style="background:#ef4444"></span>差<span class="status-deduct" id="opt-dirty-deduct">-2</span></button>
+  </div>
+  <div class="reason-box" id="reason-box" hidden>
+    <input type="text" id="area-reason" placeholder="扣分原因（选填）" maxlength="50">
+  </div>
+  <div class="sheet-actions">
+    <button class="btn-ghost" id="area-cancel">取消</button>
+    <button class="btn-primary" id="area-save">保存</button>
+  </div>
+</div>
+
+<!-- ============ 弹层：班级编辑 ============ -->
+<div class="mask" id="class-mask" hidden></div>
+<div class="sheet" id="class-sheet" hidden>
+  <div class="sheet-title" id="class-sheet-title">添加班级</div>
+  <div class="field-label">班级名称</div>
+  <input type="text" id="class-name" placeholder="如：一年级（1）班" maxlength="20">
+  <div class="field-label">负责区域</div>
+  <div class="area-tags" id="class-area-tags"></div>
+  <div class="area-add-row">
+    <input type="text" id="class-area-input" placeholder="输入区域，如：教室" maxlength="20">
+    <button class="btn-add small" id="class-area-add">＋</button>
+  </div>
+  <div class="sheet-actions">
+    <button class="btn-ghost" id="class-cancel">取消</button>
+    <button class="btn-danger" id="class-delete" hidden>删除</button>
+    <button class="btn-primary" id="class-save">保存</button>
+  </div>
+</div>
+
+<div id="toast" hidden></div>
+
+<script src="./app.js"></script>
+</body>
+</html>
