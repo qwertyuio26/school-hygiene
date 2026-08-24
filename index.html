@@ -28,25 +28,25 @@
       <button class="date-arrow" id="check-next" aria-label="后一天">›</button>
     </header>
 
-    <div class="check-summary" id="check-summary">
-      <div class="sum-item"><span class="sum-num" id="sum-checked">0</span><span class="sum-label">已检查区域</span></div>
+    <div class="check-summary">
+      <div class="sum-item"><span class="sum-num" id="sum-checked">0</span><span class="sum-label">已检查地区</span></div>
       <div class="sum-divider"></div>
       <div class="sum-item"><span class="sum-num" id="sum-deduct">0</span><span class="sum-label">今日扣分</span></div>
       <div class="sum-divider"></div>
-      <div class="sum-item"><span class="sum-num" id="sum-total">0</span><span class="sum-label">总区域</span></div>
+      <div class="sum-item"><span class="sum-num" id="sum-problem">0</span><span class="sum-label">发现问题</span></div>
     </div>
 
     <div class="toolbar-row">
       <button class="btn-ghost" id="btn-clean-all">✔ 今日全部干净</button>
-      <button class="btn-ghost" id="btn-undo-all">撤销全部</button>
+      <button class="btn-ghost" id="btn-copy">📋 复制汇总</button>
     </div>
 
-    <div class="list" id="check-class-list"></div>
+    <div class="list" id="check-area-list"></div>
     <div class="empty" id="check-empty" hidden>
       <div class="empty-emoji">🏫</div>
-      <p>还没有班级</p>
-      <p class="empty-sub">去「设置」里添加班级和负责区域吧</p>
-      <button class="btn-primary" id="empty-go-settings">去添加班级</button>
+      <p>还没有地区</p>
+      <p class="empty-sub">去「设置」里添加学校地区和值日班级吧</p>
+      <button class="btn-primary" id="empty-go-settings">去设置</button>
     </div>
   </section>
 
@@ -60,6 +60,9 @@
       </div>
       <button class="date-arrow" id="rec-next" aria-label="后一天">›</button>
     </header>
+    <div class="toolbar-row">
+      <button class="btn-ghost" id="btn-clear-day">🗑 删除当天全部记录</button>
+    </div>
     <div class="list" id="rec-list"></div>
     <div class="empty" id="rec-empty" hidden>
       <div class="empty-emoji">📋</div>
@@ -84,12 +87,13 @@
       <div class="stat-card"><div class="stat-val" id="stat-avg">0</div><div class="stat-lbl">日均扣分</div></div>
     </div>
 
-    <div class="rank-head">班级扣分排名</div>
+    <div class="rank-head">值日班级扣分排名</div>
     <div class="list" id="stats-rank-list"></div>
-    <div class="empty" id="stats-empty" hidden>
-      <div class="empty-emoji">📊</div>
-      <p>暂无统计数据</p>
-    </div>
+    <div class="empty" id="stats-rank-empty" hidden><div class="empty-emoji">🏆</div><p>暂无扣分数据</p></div>
+
+    <div class="rank-head" style="margin-top:18px">高频卫生问题</div>
+    <div class="list" id="stats-issue-list"></div>
+    <div class="empty" id="stats-issue-empty" hidden><div class="empty-emoji">🧹</div><p>暂无问题记录</p></div>
   </section>
 
   <!-- ============ 视图4：设置 ============ -->
@@ -99,37 +103,21 @@
     </header>
 
     <div class="settings-group">
-      <div class="group-title">班级与区域</div>
+      <div class="group-title">学校地区划分</div>
+      <div class="list" id="area-manage-list"></div>
+      <button class="btn-add" id="btn-add-area">＋ 添加地区</button>
+    </div>
+
+    <div class="settings-group">
+      <div class="group-title">值日班级</div>
       <div class="list" id="class-manage-list"></div>
       <button class="btn-add" id="btn-add-class">＋ 添加班级</button>
     </div>
 
     <div class="settings-group">
-      <div class="group-title">扣分规则</div>
-      <div class="rule-row">
-        <span>一般扣分</span>
-        <div class="stepper">
-          <button data-step="fair" data-dir="-1">−</button>
-          <span id="rule-fair">1</span>
-          <button data-step="fair" data-dir="1">＋</button>
-        </div>
-      </div>
-      <div class="rule-row">
-        <span>差 扣分</span>
-        <div class="stepper">
-          <button data-step="dirty" data-dir="-1">−</button>
-          <span id="rule-dirty">2</span>
-          <button data-step="dirty" data-dir="1">＋</button>
-        </div>
-      </div>
-      <div class="rule-row">
-        <span>满分</span>
-        <div class="stepper">
-          <button data-step="full" data-dir="-5">−5</button>
-          <span id="rule-full">100</span>
-          <button data-step="full" data-dir="5">＋5</button>
-        </div>
-      </div>
+      <div class="group-title">常见卫生问题（点选即可，无需打字）</div>
+      <div class="list" id="issue-manage-list"></div>
+      <button class="btn-add" id="btn-add-issue">＋ 添加问题</button>
     </div>
 
     <div class="settings-group">
@@ -137,15 +125,16 @@
       <div class="cell-btn" id="btn-export">📤 导出数据</div>
       <div class="cell-btn" id="btn-copy">📋 复制数据到剪贴板</div>
       <div class="cell-btn" id="btn-import">📥 导入数据</div>
-      <div class="cell-btn danger" id="btn-clear-all">🗑 清空全部数据</div>
+      <div class="cell-btn danger" id="btn-clear-all">🗑 清空全部数据（含照片）</div>
       <input type="file" id="import-file" accept="application/json,.json" hidden>
     </div>
 
     <div class="settings-group">
       <div class="group-title">使用说明</div>
       <div class="help-text">
+        <p><b>检查流程：</b>选地区 → 发现问题 → 记录值日班级 → 记录扣分</p>
         <p><b>添加到主屏幕（像 App 一样用）：</b></p>
-        <p>· iPhone：Safari 打开 → 分享按钮 → 「添加到主屏幕」</p>
+        <p>· iPhone：Safari 打开 → 分享 → 「添加到主屏幕」</p>
         <p>· 安卓：浏览器菜单 → 「添加到主屏幕 / 安装应用」</p>
         <p>之后从桌面图标点开即用，可离线。</p>
       </div>
@@ -161,20 +150,49 @@
   </nav>
 </div>
 
-<!-- ============ 弹层：区域状态选择 ============ -->
+<!-- ============ 弹层：记录（核心检查流程） ============ -->
+<div class="mask" id="record-mask" hidden></div>
+<div class="sheet" id="record-sheet" hidden>
+  <div class="sheet-title" id="record-sheet-title">教室</div>
+
+  <div class="step-label">① 发现问题</div>
+  <button class="clean-btn" id="record-clean">✅ 干净，无问题</button>
+  <div class="issue-chips" id="record-issues"></div>
+
+  <div class="step-label">② 记录值日班级</div>
+  <div class="class-chips" id="record-classes"></div>
+
+  <div class="step-label">③ 记录扣分</div>
+  <div class="deduct-row">
+    <button class="deduct-btn" id="record-deduct-minus">−</button>
+    <span class="deduct-val" id="record-deduct-val">0</span>
+    <button class="deduct-btn" id="record-deduct-plus">＋</button>
+  </div>
+
+  <div class="step-label">④ 上传照片（选填，最多 3 张）</div>
+  <div class="img-thumbs" id="record-imgs"></div>
+  <button class="img-add" id="record-add-img">📷 拍照 / 从相册上传</button>
+  <input type="file" id="record-img-input" accept="image/*" hidden>
+
+  <input type="text" id="record-note" placeholder="备注（选填）" maxlength="50">
+
+  <div class="sheet-actions">
+    <button class="btn-ghost" id="record-cancel">取消</button>
+    <button class="btn-primary" id="record-save">保存</button>
+  </div>
+</div>
+
+<!-- ============ 弹层：地区编辑 ============ -->
 <div class="mask" id="area-mask" hidden></div>
 <div class="sheet" id="area-sheet" hidden>
-  <div class="sheet-title" id="area-sheet-title">教室</div>
-  <div class="status-picker" id="area-status-picker">
-    <button data-status="clean" class="status-opt"><span class="dot" style="background:#22c55e"></span>干净<span class="status-deduct">不扣分</span></button>
-    <button data-status="fair" class="status-opt"><span class="dot" style="background:#f59e0b"></span>一般<span class="status-deduct" id="opt-fair-deduct">-1</span></button>
-    <button data-status="dirty" class="status-opt"><span class="dot" style="background:#ef4444"></span>差<span class="status-deduct" id="opt-dirty-deduct">-2</span></button>
-  </div>
-  <div class="reason-box" id="reason-box" hidden>
-    <input type="text" id="area-reason" placeholder="扣分原因（选填）" maxlength="50">
-  </div>
+  <div class="sheet-title" id="area-sheet-title">添加地区</div>
+  <div class="field-label">地区名称</div>
+  <input type="text" id="area-name" placeholder="如：教室、走廊、操场" maxlength="20">
+  <div class="field-label">默认值日班级（选填，检查时可改）</div>
+  <div class="class-chips" id="area-default-class"></div>
   <div class="sheet-actions">
     <button class="btn-ghost" id="area-cancel">取消</button>
+    <button class="btn-danger" id="area-delete" hidden>删除</button>
     <button class="btn-primary" id="area-save">保存</button>
   </div>
 </div>
@@ -185,17 +203,37 @@
   <div class="sheet-title" id="class-sheet-title">添加班级</div>
   <div class="field-label">班级名称</div>
   <input type="text" id="class-name" placeholder="如：一年级（1）班" maxlength="20">
-  <div class="field-label">负责区域</div>
-  <div class="area-tags" id="class-area-tags"></div>
-  <div class="area-add-row">
-    <input type="text" id="class-area-input" placeholder="输入区域，如：教室" maxlength="20">
-    <button class="btn-add small" id="class-area-add">＋</button>
-  </div>
   <div class="sheet-actions">
     <button class="btn-ghost" id="class-cancel">取消</button>
     <button class="btn-danger" id="class-delete" hidden>删除</button>
     <button class="btn-primary" id="class-save">保存</button>
   </div>
+</div>
+
+<!-- ============ 弹层：问题编辑 ============ -->
+<div class="mask" id="issue-mask" hidden></div>
+<div class="sheet" id="issue-sheet" hidden>
+  <div class="sheet-title" id="issue-sheet-title">添加问题</div>
+  <div class="field-label">问题描述</div>
+  <input type="text" id="issue-name" placeholder="如：地面有垃圾" maxlength="20">
+  <div class="field-label">默认扣分</div>
+  <div class="deduct-row">
+    <button class="deduct-btn" id="issue-deduct-minus">−</button>
+    <span class="deduct-val" id="issue-deduct-val">1</span>
+    <button class="deduct-btn" id="issue-deduct-plus">＋</button>
+  </div>
+  <div class="sheet-actions">
+    <button class="btn-ghost" id="issue-cancel">取消</button>
+    <button class="btn-danger" id="issue-delete" hidden>删除</button>
+    <button class="btn-primary" id="issue-save">保存</button>
+  </div>
+</div>
+
+<!-- ============ 图片大图预览 ============ -->
+<div class="mask" id="imgview-mask" hidden></div>
+<div class="imgview" id="imgview" hidden>
+  <img id="imgview-img" alt="照片预览">
+  <button class="imgview-close" id="imgview-close">✕</button>
 </div>
 
 <div id="toast" hidden></div>
