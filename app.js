@@ -131,6 +131,16 @@ const Store = {
   saveRecords(v) { write(KEYS.records, v); },
 
   seed() {
+    // v1->v2 迁移：旧版 classes 带 areas 字段、records 为嵌套对象（自动清理，避免新结构读取报错）
+    const oldClasses = Store.getClasses();
+    if (oldClasses.length > 0 && Array.isArray(oldClasses[0].areas)) {
+      write(KEYS.classes, oldClasses.map(function (c) { return { id: c.id, name: c.name }; }));
+    }
+    const oldRecords = Store.getRecords();
+    const firstDate = Object.keys(oldRecords)[0];
+    if (firstDate && !Array.isArray(oldRecords[firstDate])) {
+      localStorage.removeItem(KEYS.records);
+    }
     if (localStorage.getItem(KEYS.areas) == null) write(KEYS.areas, DEFAULT_AREAS.map(function (a) { return { id: a.id, name: a.name, defaultClassId: '' }; }));
     if (localStorage.getItem(KEYS.issues) == null) write(KEYS.issues, DEFAULT_ISSUES.map(function (i) { return { id: i.id, name: i.name, deduction: i.deduction }; }));
   },
