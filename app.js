@@ -268,7 +268,7 @@ const Store = {
   summarize(fromStr, toStr, typeFilter) {
     const r = Store.getRecords();
     const areaTypeMap = {};
-    Store.getAreas().forEach(function (a) { areaTypeMap[a.id] = a.type || 'outdoor'; });
+    Store.getAreas().forEach(function (a) { areaTypeMap[a.id] = a.type || 'cleanup'; });
     const classDeduct = {};
     const issueCount = {};
     let daysSet = {};
@@ -320,7 +320,7 @@ const state = {
   draft: { areaId: '', classId: '', issueIds: [], deduction: 0, note: '', imgs: [], oldImgIds: [] },
   editingAreaId: null, editingClassId: null, editingIssueId: null,
   areaDefaultClass: '',
-  areaType: 'indoor'
+  areaType: 'classroom'
 };
 
 function $(id) { return document.getElementById(id); }
