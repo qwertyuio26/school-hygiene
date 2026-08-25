@@ -29,9 +29,9 @@
     </header>
 
     <div class="check-summary">
-      <div class="sum-item"><span class="sum-num" id="sum-indoor">0</span><span class="sum-label">🏠 室内扣分</span></div>
+      <div class="sum-item"><span class="sum-num" id="sum-indoor">0</span><span class="sum-label">🏫 教室扣分</span></div>
       <div class="sum-divider"></div>
-      <div class="sum-item"><span class="sum-num" id="sum-outdoor">0</span><span class="sum-label">🌳 室外扣分</span></div>
+      <div class="sum-item"><span class="sum-num" id="sum-outdoor">0</span><span class="sum-label">🧹 清洁区扣分</span></div>
       <div class="sum-divider"></div>
       <div class="sum-item"><span class="sum-num" id="sum-total">0</span><span class="sum-label">总扣分</span></div>
     </div>
@@ -82,15 +82,15 @@
     </div>
 
     <div class="stat-cards">
-      <div class="stat-card"><div class="stat-val" id="stat-indoor">0</div><div class="stat-lbl">🏠 室内扣分</div></div>
-      <div class="stat-card"><div class="stat-val" id="stat-outdoor">0</div><div class="stat-lbl">🌳 室外扣分</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-indoor">0</div><div class="stat-lbl">🏫 教室扣分</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-outdoor">0</div><div class="stat-lbl">🧹 清洁区扣分</div></div>
       <div class="stat-card"><div class="stat-val" id="stat-total-deduct">0</div><div class="stat-lbl">总扣分</div></div>
     </div>
 
     <div class="segmented" id="stats-type">
       <button data-type="all" class="seg active">全部</button>
-      <button data-type="indoor" class="seg">🏠 室内</button>
-      <button data-type="outdoor" class="seg">🌳 室外</button>
+      <button data-type="classroom" class="seg">🏫 教室</button>
+      <button data-type="cleanup" class="seg">🧹 清洁区</button>
     </div>
 
     <div class="rank-head">值日班级扣分排名</div>
@@ -196,8 +196,8 @@
   <input type="text" id="area-name" placeholder="如：教室、走廊、操场" maxlength="20">
   <div class="field-label">室内 / 室外</div>
   <div class="segmented" id="area-type">
-    <button data-type="indoor" class="seg active">🏠 室内</button>
-    <button data-type="outdoor" class="seg">🌳 室外</button>
+    <button data-type="classroom" class="seg active">🏫 教室</button>
+    <button data-type="cleanup" class="seg">🧹 清洁区</button>
   </div>
   <div class="field-label">默认值日班级（选填，检查时可改）</div>
   <div class="class-chips" id="area-default-class"></div>
