@@ -89,15 +89,37 @@ const ImgDB = {
 };
 
 /* ================= 预置数据 ================= */
+const DEFAULT_CLASSES = [
+  { id: 'c01', name: '九2 杨明仙' }, { id: 'c02', name: '七6 熊贵云' }, { id: 'c03', name: '九7 左丽' },
+  { id: 'c04', name: '八4 杨梅' }, { id: 'c05', name: '九3 胡旺' }, { id: 'c06', name: '八6 陈英权' },
+  { id: 'c07', name: '九6 徐勇' }, { id: 'c08', name: '九1 周美' }, { id: 'c09', name: '八1 陈大超' },
+  { id: 'c10', name: '八5 柳大远' }, { id: 'c11', name: '八3 王巧' }, { id: 'c12', name: '八2 李良贵' },
+  { id: 'c13', name: '七1 罗富' }, { id: 'c14', name: '八7 刘义春' }, { id: 'c15', name: '九5 黄启龙' },
+  { id: 'c16', name: '七4 雪莲' }, { id: 'c17', name: '九4 杨松' }, { id: 'c18', name: '七3 黄苇' },
+  { id: 'c19', name: '七7 陈兴' }, { id: 'c20', name: '七5 刘玲' }, { id: 'c21', name: '七2 张莹' }
+];
 const DEFAULT_AREAS = [
-  { id: 'a_jiaoshi', name: '教室', defaultClassId: '' },
-  { id: 'a_zoulang', name: '走廊', defaultClassId: '' },
-  { id: 'a_louti', name: '楼梯间', defaultClassId: '' },
-  { id: 'a_caochang', name: '操场', defaultClassId: '' },
-  { id: 'a_cesuo', name: '厕所', defaultClassId: '' },
-  { id: 'a_baogan', name: '包干区', defaultClassId: '' },
-  { id: 'a_shitang', name: '食堂', defaultClassId: '' },
-  { id: 'a_xiaomen', name: '校门口', defaultClassId: '' }
+  { id: 'a01', name: '教学楼左楼梯及楼梯脚', type: 'indoor', defaultClassId: 'c01' },
+  { id: 'a02', name: '教学楼右楼梯、校长室及教务处平台', type: 'indoor', defaultClassId: 'c02' },
+  { id: 'a03', name: '教学楼前左边平台及花坛', type: 'outdoor', defaultClassId: 'c03' },
+  { id: 'a04', name: '教学楼前右边平台及花坛', type: 'outdoor', defaultClassId: 'c04' },
+  { id: 'a05', name: '教学楼前大楼梯及花坛、黄土坡、洗手池', type: 'outdoor', defaultClassId: 'c05' },
+  { id: 'a06', name: '综合楼（过道阳台、党建、阶梯教室）', type: 'indoor', defaultClassId: 'c06' },
+  { id: 'a07', name: '综合楼周围及大办公室路段', type: 'outdoor', defaultClassId: 'c07' },
+  { id: 'a08', name: '教学楼前楼梯到操场及花坛', type: 'outdoor', defaultClassId: 'c08' },
+  { id: 'a09', name: '操场大门侧（挡车球内）及花坛', type: 'outdoor', defaultClassId: 'c09' },
+  { id: 'a10', name: '操场党建侧下水沟及平台', type: 'outdoor', defaultClassId: 'c10' },
+  { id: 'a11', name: '操场舞台、平台及台阶', type: 'outdoor', defaultClassId: 'c11' },
+  { id: 'a12', name: '操场舞台河边花坛', type: 'outdoor', defaultClassId: 'c12' },
+  { id: 'a13', name: '舞台后男生宿舍前花坛', type: 'outdoor', defaultClassId: 'c13' },
+  { id: 'a14', name: '男生宿舍后乒乓球场、洗手池及花坛', type: 'outdoor', defaultClassId: 'c14' },
+  { id: 'a15', name: '食堂垃圾倾倒', type: 'outdoor', defaultClassId: 'c15' },
+  { id: 'a16', name: '女厕所', type: 'indoor', defaultClassId: 'c16' },
+  { id: 'a17', name: '男厕所', type: 'indoor', defaultClassId: 'c17' },
+  { id: 'a18', name: '垃圾池及周围', type: 'outdoor', defaultClassId: 'c18' },
+  { id: 'a19', name: '桥上到老教师周转房周边', type: 'outdoor', defaultClassId: 'c19' },
+  { id: 'a20', name: '文化墙前到新教师周转房及黄土坡', type: 'outdoor', defaultClassId: 'c20' },
+  { id: 'a21', name: '教学楼前到厕所、女生宿舍路段', type: 'outdoor', defaultClassId: 'c21' }
 ];
 const DEFAULT_ISSUES = [
   { id: 'i_laji', name: '地面有垃圾/纸屑', deduction: 2 },
@@ -141,7 +163,13 @@ const Store = {
     if (firstDate && !Array.isArray(oldRecords[firstDate])) {
       localStorage.removeItem(KEYS.records);
     }
-    if (localStorage.getItem(KEYS.areas) == null) write(KEYS.areas, DEFAULT_AREAS.map(function (a) { return { id: a.id, name: a.name, defaultClassId: '' }; }));
+    // v3 迁移：旧地区无 type 字段 -> 用新预置替换
+    const oldAreas = Store.getAreas();
+    if (oldAreas.length > 0 && oldAreas[0].type === undefined) {
+      localStorage.removeItem(KEYS.areas);
+    }
+    if (localStorage.getItem(KEYS.classes) == null) write(KEYS.classes, DEFAULT_CLASSES.map(function (c) { return { id: c.id, name: c.name }; }));
+    if (localStorage.getItem(KEYS.areas) == null) write(KEYS.areas, DEFAULT_AREAS.map(function (a) { return { id: a.id, name: a.name, type: a.type, defaultClassId: a.defaultClassId }; }));
     if (localStorage.getItem(KEYS.issues) == null) write(KEYS.issues, DEFAULT_ISSUES.map(function (i) { return { id: i.id, name: i.name, deduction: i.deduction }; }));
   },
 
@@ -191,35 +219,42 @@ const Store = {
     const recs = Store.getDayRecords(date);
     const areaMap = {};
     recs.forEach(function (rec) { areaMap[rec.areaId] = rec; });
-    let checked = 0, deduct = 0, problems = 0;
+    let checked = 0, deduct = 0, problems = 0, indoorDeduct = 0, outdoorDeduct = 0;
     areas.forEach(function (a) {
       const rec = areaMap[a.id];
       if (rec) {
         checked++;
-        deduct += (rec.deduction || 0);
+        const d = rec.deduction || 0;
+        deduct += d;
         problems += (rec.issueIds || []).length;
+        if (a.type === 'indoor') indoorDeduct += d; else outdoorDeduct += d;
       }
     });
-    return { checked: checked, deduct: deduct, problems: problems };
+    return { checked: checked, deduct: deduct, problems: problems, indoorDeduct: indoorDeduct, outdoorDeduct: outdoorDeduct };
   },
 
-  summarize(fromStr, toStr) {
+  summarize(fromStr, toStr, typeFilter) {
     const r = Store.getRecords();
+    const areaTypeMap = {};
+    Store.getAreas().forEach(function (a) { areaTypeMap[a.id] = a.type || 'outdoor'; });
     const classDeduct = {};
     const issueCount = {};
     let daysSet = {};
-    let totalDeduct = 0;
+    let indoorDeduct = 0, outdoorDeduct = 0;
     Object.keys(r).forEach(function (date) {
       if (date < fromStr || date > toStr) return;
       (r[date] || []).forEach(function (rec) {
+        const type = areaTypeMap[rec.areaId] || 'outdoor';
         const d = rec.deduction || 0;
-        totalDeduct += d;
+        if (type === 'indoor') indoorDeduct += d; else outdoorDeduct += d;
+        if (typeFilter && typeFilter !== 'all' && type !== typeFilter) return;
         if (rec.classId) classDeduct[rec.classId] = (classDeduct[rec.classId] || 0) + d;
         (rec.issueIds || []).forEach(function (iid) { issueCount[iid] = (issueCount[iid] || 0) + 1; });
         daysSet[date] = 1;
       });
     });
     const days = Object.keys(daysSet).length;
+    const totalDeduct = indoorDeduct + outdoorDeduct;
     const rank = Store.getClasses().map(function (c) {
       return { id: c.id, name: c.name, deduct: classDeduct[c.id] || 0 };
     }).sort(function (a, b) { return a.deduct - b.deduct; });
@@ -227,7 +262,7 @@ const Store = {
       const it = Store.getIssue(iid);
       return { id: iid, name: it ? it.name : '已删除问题', count: issueCount[iid] };
     }).sort(function (a, b) { return b.count - a.count; });
-    return { rank: rank, issueTop: issueTop, days: days, totalDeduct: totalDeduct, avg: days ? (totalDeduct / days).toFixed(1) : '0' };
+    return { rank: rank, issueTop: issueTop, days: days, totalDeduct: totalDeduct, indoorDeduct: indoorDeduct, outdoorDeduct: outdoorDeduct, avg: days ? (totalDeduct / days).toFixed(1) : '0' };
   },
 
   exportAll() {
@@ -249,9 +284,11 @@ const state = {
   checkDate: todayStr(),
   recDate: todayStr(),
   statsRange: 'week',
+  statsType: 'all',
   draft: { areaId: '', classId: '', issueIds: [], deduction: 0, note: '', imgs: [], oldImgIds: [] },
   editingAreaId: null, editingClassId: null, editingIssueId: null,
-  areaDefaultClass: ''
+  areaDefaultClass: '',
+  areaType: 'indoor'
 };
 
 function $(id) { return document.getElementById(id); }
@@ -286,9 +323,9 @@ function renderCheck() {
   $('check-week-text').textContent = weekdayCN(state.checkDate);
   const areas = Store.getAreas();
   const sum = Store.daySummary(state.checkDate);
-  $('sum-checked').textContent = sum.checked;
-  $('sum-deduct').textContent = sum.deduct;
-  $('sum-problem').textContent = sum.problems;
+  $('sum-indoor').textContent = sum.indoorDeduct;
+  $('sum-outdoor').textContent = sum.outdoorDeduct;
+  $('sum-total').textContent = sum.deduct;
   const listEl = $('check-area-list');
   const emptyEl = $('check-empty');
   if (areas.length === 0) {
@@ -297,19 +334,23 @@ function renderCheck() {
     return;
   }
   emptyEl.hidden = true;
-  let html = '';
-  areas.forEach(function (a) {
+  function areaCard(a) {
     const rec = Store.getDayAreaRecord(state.checkDate, a.id);
     let statusHtml;
     if (!rec) statusHtml = '<span class="area-state unchecked">未检查</span>';
     else if ((rec.issueIds || []).length === 0) statusHtml = '<span class="area-state clean">干净</span>';
     else statusHtml = '<span class="area-state dirty">' + rec.issueIds.length + '问题 -' + (rec.deduction || 0) + '</span>';
     const cls = rec && rec.classId ? Store.getClassName(rec.classId) : (Store.getClassName(a.defaultClassId) || '');
-    html += '<div class="area-card" data-areaid="' + a.id + '">' +
+    return '<div class="area-card" data-areaid="' + a.id + '">' +
       '<div class="area-card-main"><span class="area-card-name">' + esc(a.name) + '</span>' +
       '<span class="area-card-class">值日：' + (esc(cls) || '未设置') + '</span></div>' +
       statusHtml + '</div>';
-  });
+  }
+  const indoor = areas.filter(function (a) { return a.type === 'indoor'; });
+  const outdoor = areas.filter(function (a) { return a.type === 'outdoor'; });
+  let html = '';
+  if (indoor.length) html += '<div class="group-title-bar"><span class="group-dot indoor"></span>室内 <span class="group-count">' + indoor.length + ' 个区域</span></div>' + indoor.map(areaCard).join('');
+  if (outdoor.length) html += '<div class="group-title-bar"><span class="group-dot outdoor"></span>室外 <span class="group-count">' + outdoor.length + ' 个区域</span></div>' + outdoor.map(areaCard).join('');
   listEl.innerHTML = html;
 }
 function openRecordSheet(areaId) {
@@ -606,11 +647,12 @@ function statsRangeDates() {
 
 function renderStats() {
   document.querySelectorAll('#stats-range .seg').forEach(function (b) { b.classList.toggle('active', b.dataset.range === state.statsRange); });
+  document.querySelectorAll('#stats-type .seg').forEach(function (b) { b.classList.toggle('active', b.dataset.type === state.statsType); });
   const range = statsRangeDates();
-  const s = Store.summarize(range.from, range.to);
-  $('stat-days').textContent = s.days;
+  const s = Store.summarize(range.from, range.to, state.statsType);
+  $('stat-indoor').textContent = s.indoorDeduct;
+  $('stat-outdoor').textContent = s.outdoorDeduct;
   $('stat-total-deduct').textContent = s.totalDeduct;
-  $('stat-avg').textContent = s.avg;
 
   const rankEl = $('stats-rank-list');
   const rankEmpty = $('stats-rank-empty');
@@ -659,9 +701,10 @@ function renderAreaManage() {
   let html = '';
   areas.forEach(function (a) {
     const cls = Store.getClassName(a.defaultClassId);
+    const typeLabel = a.type === 'indoor' ? '<span class="type-tag indoor">🏠室内</span>' : '<span class="type-tag outdoor">🌳室外</span>';
     html += '<div class="manage-row" data-id="' + a.id + '">' +
       '<div class="manage-main"><span class="manage-name">' + esc(a.name) + '</span>' +
-      '<span class="manage-sub">' + (cls ? '默认值日：' + esc(cls) : '未设默认班级') + '</span></div>' +
+      '<span class="manage-sub">' + typeLabel + ' ' + (cls ? '值日：' + esc(cls) : '未设值日班级') + '</span></div>' +
       '<span class="manage-edit">编辑 ›</span></div>';
   });
   el.innerHTML = html || '<div class="manage-empty">暂无地区</div>';
@@ -696,17 +739,23 @@ function renderIssueManage() {
 function openAreaSheet(editingId) {
   state.editingAreaId = editingId;
   state.areaDefaultClass = '';
+  state.areaType = 'indoor';
   const isEdit = !!editingId;
   $('area-sheet-title').textContent = isEdit ? '编辑地区' : '添加地区';
   $('area-delete').hidden = !isEdit;
   $('area-name').value = '';
   if (isEdit) {
     const a = Store.getArea(editingId);
-    if (a) { $('area-name').value = a.name; state.areaDefaultClass = a.defaultClassId || ''; }
+    if (a) { $('area-name').value = a.name; state.areaDefaultClass = a.defaultClassId || ''; state.areaType = a.type || 'indoor'; }
   }
+  renderAreaType();
   renderAreaDefaultClass();
   $('area-mask').hidden = false;
   $('area-sheet').hidden = false;
+}
+
+function renderAreaType() {
+  document.querySelectorAll('#area-type .seg').forEach(function (b) { b.classList.toggle('active', b.dataset.type === state.areaType); });
 }
 
 function renderAreaDefaultClass() {
@@ -724,8 +773,8 @@ function onAreaSave() {
   const name = $('area-name').value.trim();
   if (!name) { toast('请输入地区名称'); return; }
   const areas = Store.getAreas();
-  if (state.editingAreaId) areas.forEach(function (a) { if (a.id === state.editingAreaId) { a.name = name; a.defaultClassId = state.areaDefaultClass; } });
-  else areas.push({ id: uid('a'), name: name, defaultClassId: state.areaDefaultClass });
+  if (state.editingAreaId) areas.forEach(function (a) { if (a.id === state.editingAreaId) { a.name = name; a.defaultClassId = state.areaDefaultClass; a.type = state.areaType; } });
+  else areas.push({ id: uid('a'), name: name, defaultClassId: state.areaDefaultClass, type: state.areaType });
   Store.saveAreas(areas);
   closeAreaSheet();
   renderSettings();
@@ -919,6 +968,9 @@ function bindEvents() {
   document.querySelectorAll('#stats-range .seg').forEach(function (b) {
     b.addEventListener('click', function () { state.statsRange = b.dataset.range; renderStats(); });
   });
+  document.querySelectorAll('#stats-type .seg').forEach(function (b) {
+    b.addEventListener('click', function () { state.statsType = b.dataset.type; renderStats(); });
+  });
 
   $('btn-add-area').addEventListener('click', function () { openAreaSheet(null); });
   $('area-manage-list').addEventListener('click', function (e) { const r = e.target.closest('.manage-row'); if (r) openAreaSheet(r.dataset.id); });
@@ -931,6 +983,10 @@ function bindEvents() {
   $('area-cancel').addEventListener('click', closeAreaSheet);
   $('area-save').addEventListener('click', onAreaSave);
   $('area-delete').addEventListener('click', onAreaDelete);
+  $('area-type').addEventListener('click', function (e) {
+    const seg = e.target.closest('.seg');
+    if (seg) { state.areaType = seg.dataset.type; renderAreaType(); }
+  });
   $('area-default-class').addEventListener('click', function (e) {
     const chip = e.target.closest('.class-chip');
     if (chip) { state.areaDefaultClass = chip.dataset.classid; renderAreaDefaultClass(); }
