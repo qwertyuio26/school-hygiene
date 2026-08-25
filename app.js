@@ -315,6 +315,7 @@ const state = {
   view: 'check',
   checkDate: todayStr(),
   recDate: todayStr(),
+  ovDate: todayStr(),
   statsRange: 'week',
   statsType: 'all',
   draft: { areaId: '', classId: '', issueIds: [], deduction: 0, note: '', imgs: [], oldImgIds: [] },
@@ -346,6 +347,7 @@ function switchView(view) {
   if (view === 'check') renderCheck();
   else if (view === 'records') renderRecords();
   else if (view === 'stats') renderStats();
+  else if (view === 'overview') renderOverview();
   else if (view === 'settings') renderSettings();
 }
 
@@ -603,6 +605,48 @@ function copyText(text) {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(fallback);
   else fallback();
 }
+/* ================= 扣分总览 ================= */
+function renderOverview() {
+  $('ov-date-text').textContent = dateText(state.ovDate);
+  $('ov-week-text').textContent = weekdayCN(state.ovDate);
+  const recs = Store.getDayRecords(state.ovDate);
+  const areas = Store.getAreas();
+  const areaMap = {};
+  areas.forEach(function (a) { areaMap[a.id] = a; });
+  const problemRecs = recs.filter(function (r) { return (r.issueIds || []).length > 0; });
+  const el = $('ov-content');
+  if (problemRecs.length === 0) {
+    el.innerHTML = '<div class="ov-clean"><div class="ov-clean-emoji">🎉</div><p>当天无扣分</p><p class="ov-clean-sub">所有区域全部合格</p></div>';
+    return;
+  }
+  const classroomRecs = problemRecs.filter(function (r) { return (areaMap[r.areaId] || {}).type === 'classroom'; });
+  const cleanupRecs = problemRecs.filter(function (r) { return (areaMap[r.areaId] || {}).type !== 'classroom'; });
+  let clsDeduct = 0, clnDeduct = 0;
+  function recBlock(rec) {
+    const area = areaMap[rec.areaId];
+    const areaName = area ? area.name : '已删除区域';
+    const cls = Store.getClassName(rec.classId) || '未记录';
+    const issues = (rec.issueIds || []).map(function (id) { const it = Store.getIssue(id); return it ? it.name : '其他问题'; });
+    const d = rec.deduction || 0;
+    return '<div class="ov-row">' +
+      '<div class="ov-head"><span class="ov-area">' + esc(areaName) + '</span><span class="ov-class">' + esc(cls) + '</span><span class="ov-deduct">-' + d + '</span></div>' +
+      '<div class="ov-issues">' + issues.map(function (i) { return '<span class="ov-issue">' + esc(i) + '</span>'; }).join('') + '</div>' +
+      '</div>';
+  }
+  let html = '';
+  if (classroomRecs.length) {
+    html += '<div class="ov-group-title">🏫 教室卫生</div>';
+    classroomRecs.forEach(function (rec) { html += recBlock(rec); clsDeduct += (rec.deduction || 0); });
+  }
+  if (cleanupRecs.length) {
+    html += '<div class="ov-group-title">🧹 清洁区</div>';
+    cleanupRecs.forEach(function (rec) { html += recBlock(rec); clnDeduct += (rec.deduction || 0); });
+  }
+  const total = clsDeduct + clnDeduct;
+  html += '<div class="ov-total">共 <b>' + problemRecs.length + '</b> 个区域扣分，合计 <b>' + total + '</b> 分<br><span class="ov-total-sub">（教室 ' + clsDeduct + ' 分 / 清洁区 ' + clnDeduct + ' 分）</span></div>';
+  el.innerHTML = html;
+}
+
 /* ================= 记录页 ================= */
 function renderRecords() {
   $('rec-date-text').textContent = dateText(state.recDate);
@@ -987,6 +1031,8 @@ function bindEvents() {
     if (img && img.src) showImgView(img.src);
   });
 
+  $('ov-prev').addEventListener('click', function () { state.ovDate = addDays(state.ovDate, -1); renderOverview(); });
+  $('ov-next').addEventListener('click', function () { state.ovDate = addDays(state.ovDate, 1); renderOverview(); });
   $('rec-prev').addEventListener('click', function () { state.recDate = addDays(state.recDate, -1); renderRecords(); });
   $('rec-next').addEventListener('click', function () { state.recDate = addDays(state.recDate, 1); renderRecords(); });
   $('btn-clear-day').addEventListener('click', clearDayAndImgs);
