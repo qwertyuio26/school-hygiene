@@ -99,27 +99,48 @@ const DEFAULT_CLASSES = [
   { id: 'c19', name: '七7 陈兴' }, { id: 'c20', name: '七5 刘玲' }, { id: 'c21', name: '七2 张莹' }
 ];
 const DEFAULT_AREAS = [
-  { id: 'a01', name: '教学楼左楼梯及楼梯脚', type: 'indoor', defaultClassId: 'c01' },
-  { id: 'a02', name: '教学楼右楼梯、校长室及教务处平台', type: 'indoor', defaultClassId: 'c02' },
-  { id: 'a03', name: '教学楼前左边平台及花坛', type: 'outdoor', defaultClassId: 'c03' },
-  { id: 'a04', name: '教学楼前右边平台及花坛', type: 'outdoor', defaultClassId: 'c04' },
-  { id: 'a05', name: '教学楼前大楼梯及花坛、黄土坡、洗手池', type: 'outdoor', defaultClassId: 'c05' },
-  { id: 'a06', name: '综合楼（过道阳台、党建、阶梯教室）', type: 'indoor', defaultClassId: 'c06' },
-  { id: 'a07', name: '综合楼周围及大办公室路段', type: 'outdoor', defaultClassId: 'c07' },
-  { id: 'a08', name: '教学楼前楼梯到操场及花坛', type: 'outdoor', defaultClassId: 'c08' },
-  { id: 'a09', name: '操场大门侧（挡车球内）及花坛', type: 'outdoor', defaultClassId: 'c09' },
-  { id: 'a10', name: '操场党建侧下水沟及平台', type: 'outdoor', defaultClassId: 'c10' },
-  { id: 'a11', name: '操场舞台、平台及台阶', type: 'outdoor', defaultClassId: 'c11' },
-  { id: 'a12', name: '操场舞台河边花坛', type: 'outdoor', defaultClassId: 'c12' },
-  { id: 'a13', name: '舞台后男生宿舍前花坛', type: 'outdoor', defaultClassId: 'c13' },
-  { id: 'a14', name: '男生宿舍后乒乓球场、洗手池及花坛', type: 'outdoor', defaultClassId: 'c14' },
-  { id: 'a15', name: '食堂垃圾倾倒', type: 'outdoor', defaultClassId: 'c15' },
-  { id: 'a16', name: '女厕所', type: 'indoor', defaultClassId: 'c16' },
-  { id: 'a17', name: '男厕所', type: 'indoor', defaultClassId: 'c17' },
-  { id: 'a18', name: '垃圾池及周围', type: 'outdoor', defaultClassId: 'c18' },
-  { id: 'a19', name: '桥上到老教师周转房周边', type: 'outdoor', defaultClassId: 'c19' },
-  { id: 'a20', name: '文化墙前到新教师周转房及黄土坡', type: 'outdoor', defaultClassId: 'c20' },
-  { id: 'a21', name: '教学楼前到厕所、女生宿舍路段', type: 'outdoor', defaultClassId: 'c21' }
+  { id: 'a_c01', name: '九2班教室', type: 'classroom', defaultClassId: 'c01' },
+  { id: 'a_c02', name: '七6班教室', type: 'classroom', defaultClassId: 'c02' },
+  { id: 'a_c03', name: '九7班教室', type: 'classroom', defaultClassId: 'c03' },
+  { id: 'a_c04', name: '八4班教室', type: 'classroom', defaultClassId: 'c04' },
+  { id: 'a_c05', name: '九3班教室', type: 'classroom', defaultClassId: 'c05' },
+  { id: 'a_c06', name: '八6班教室', type: 'classroom', defaultClassId: 'c06' },
+  { id: 'a_c07', name: '九6班教室', type: 'classroom', defaultClassId: 'c07' },
+  { id: 'a_c08', name: '九1班教室', type: 'classroom', defaultClassId: 'c08' },
+  { id: 'a_c09', name: '八1班教室', type: 'classroom', defaultClassId: 'c09' },
+  { id: 'a_c10', name: '八5班教室', type: 'classroom', defaultClassId: 'c10' },
+  { id: 'a_c11', name: '八3班教室', type: 'classroom', defaultClassId: 'c11' },
+  { id: 'a_c12', name: '八2班教室', type: 'classroom', defaultClassId: 'c12' },
+  { id: 'a_c13', name: '七1班教室', type: 'classroom', defaultClassId: 'c13' },
+  { id: 'a_c14', name: '八7班教室', type: 'classroom', defaultClassId: 'c14' },
+  { id: 'a_c15', name: '九5班教室', type: 'classroom', defaultClassId: 'c15' },
+  { id: 'a_c16', name: '七4班教室', type: 'classroom', defaultClassId: 'c16' },
+  { id: 'a_c17', name: '九4班教室', type: 'classroom', defaultClassId: 'c17' },
+  { id: 'a_c18', name: '七3班教室', type: 'classroom', defaultClassId: 'c18' },
+  { id: 'a_c19', name: '七7班教室', type: 'classroom', defaultClassId: 'c19' },
+  { id: 'a_c20', name: '七5班教室', type: 'classroom', defaultClassId: 'c20' },
+  { id: 'a_c21', name: '七2班教室', type: 'classroom', defaultClassId: 'c21' },
+  { id: 'a01', name: '教学楼左楼梯及楼梯脚', type: 'cleanup', defaultClassId: 'c01' },
+  { id: 'a02', name: '教学楼右楼梯、校长室及教务处平台', type: 'cleanup', defaultClassId: 'c02' },
+  { id: 'a03', name: '教学楼前左边平台及花坛', type: 'cleanup', defaultClassId: 'c03' },
+  { id: 'a04', name: '教学楼前右边平台及花坛', type: 'cleanup', defaultClassId: 'c04' },
+  { id: 'a05', name: '教学楼前大楼梯及花坛、黄土坡、洗手池', type: 'cleanup', defaultClassId: 'c05' },
+  { id: 'a06', name: '综合楼（过道阳台、党建、阶梯教室）', type: 'cleanup', defaultClassId: 'c06' },
+  { id: 'a07', name: '综合楼周围及大办公室路段', type: 'cleanup', defaultClassId: 'c07' },
+  { id: 'a08', name: '教学楼前楼梯到操场及花坛', type: 'cleanup', defaultClassId: 'c08' },
+  { id: 'a09', name: '操场大门侧（挡车球内）及花坛', type: 'cleanup', defaultClassId: 'c09' },
+  { id: 'a10', name: '操场党建侧下水沟及平台', type: 'cleanup', defaultClassId: 'c10' },
+  { id: 'a11', name: '操场舞台、平台及台阶', type: 'cleanup', defaultClassId: 'c11' },
+  { id: 'a12', name: '操场舞台河边花坛', type: 'cleanup', defaultClassId: 'c12' },
+  { id: 'a13', name: '舞台后男生宿舍前花坛', type: 'cleanup', defaultClassId: 'c13' },
+  { id: 'a14', name: '男生宿舍后乒乓球场、洗手池及花坛', type: 'cleanup', defaultClassId: 'c14' },
+  { id: 'a15', name: '食堂垃圾倾倒', type: 'cleanup', defaultClassId: 'c15' },
+  { id: 'a16', name: '女厕所', type: 'cleanup', defaultClassId: 'c16' },
+  { id: 'a17', name: '男厕所', type: 'cleanup', defaultClassId: 'c17' },
+  { id: 'a18', name: '垃圾池及周围', type: 'cleanup', defaultClassId: 'c18' },
+  { id: 'a19', name: '桥上到老教师周转房周边', type: 'cleanup', defaultClassId: 'c19' },
+  { id: 'a20', name: '文化墙前到新教师周转房及黄土坡', type: 'cleanup', defaultClassId: 'c20' },
+  { id: 'a21', name: '教学楼前到厕所、女生宿舍路段', type: 'cleanup', defaultClassId: 'c21' }
 ];
 const DEFAULT_ISSUES = [
   { id: 'i_laji', name: '地面有垃圾/纸屑', deduction: 2 },
@@ -167,6 +188,17 @@ const Store = {
     const oldAreas = Store.getAreas();
     if (oldAreas.length > 0 && oldAreas[0].type === undefined) {
       localStorage.removeItem(KEYS.areas);
+    }
+    // v4 迁移：旧 indoor/outdoor 分类 -> 清洁区，并补充教室区域
+    const curAreas = Store.getAreas();
+    if (curAreas.length > 0 && (curAreas[0].type === 'indoor' || curAreas[0].type === 'outdoor')) {
+      const cleaned = curAreas.map(function (a) { return { id: a.id, name: a.name, type: 'cleanup', defaultClassId: a.defaultClassId || '' }; });
+      DEFAULT_AREAS.forEach(function (da) {
+        if (da.type === 'classroom' && !cleaned.some(function (a) { return a.id === da.id; })) {
+          cleaned.push({ id: da.id, name: da.name, type: 'classroom', defaultClassId: da.defaultClassId });
+        }
+      });
+      write(KEYS.areas, cleaned);
     }
     if (localStorage.getItem(KEYS.classes) == null) write(KEYS.classes, DEFAULT_CLASSES.map(function (c) { return { id: c.id, name: c.name }; }));
     if (localStorage.getItem(KEYS.areas) == null) write(KEYS.areas, DEFAULT_AREAS.map(function (a) { return { id: a.id, name: a.name, type: a.type, defaultClassId: a.defaultClassId }; }));
@@ -219,7 +251,7 @@ const Store = {
     const recs = Store.getDayRecords(date);
     const areaMap = {};
     recs.forEach(function (rec) { areaMap[rec.areaId] = rec; });
-    let checked = 0, deduct = 0, problems = 0, indoorDeduct = 0, outdoorDeduct = 0;
+    let checked = 0, deduct = 0, problems = 0, classroomDeduct = 0, cleanupDeduct = 0;
     areas.forEach(function (a) {
       const rec = areaMap[a.id];
       if (rec) {
@@ -227,10 +259,10 @@ const Store = {
         const d = rec.deduction || 0;
         deduct += d;
         problems += (rec.issueIds || []).length;
-        if (a.type === 'indoor') indoorDeduct += d; else outdoorDeduct += d;
+        if (a.type === 'classroom') classroomDeduct += d; else cleanupDeduct += d;
       }
     });
-    return { checked: checked, deduct: deduct, problems: problems, indoorDeduct: indoorDeduct, outdoorDeduct: outdoorDeduct };
+    return { checked: checked, deduct: deduct, problems: problems, classroomDeduct: classroomDeduct, cleanupDeduct: cleanupDeduct };
   },
 
   summarize(fromStr, toStr, typeFilter) {
@@ -240,13 +272,13 @@ const Store = {
     const classDeduct = {};
     const issueCount = {};
     let daysSet = {};
-    let indoorDeduct = 0, outdoorDeduct = 0;
+    let classroomDeduct = 0, cleanupDeduct = 0;
     Object.keys(r).forEach(function (date) {
       if (date < fromStr || date > toStr) return;
       (r[date] || []).forEach(function (rec) {
-        const type = areaTypeMap[rec.areaId] || 'outdoor';
+        const type = areaTypeMap[rec.areaId] || 'cleanup';
         const d = rec.deduction || 0;
-        if (type === 'indoor') indoorDeduct += d; else outdoorDeduct += d;
+        if (type === 'classroom') classroomDeduct += d; else cleanupDeduct += d;
         if (typeFilter && typeFilter !== 'all' && type !== typeFilter) return;
         if (rec.classId) classDeduct[rec.classId] = (classDeduct[rec.classId] || 0) + d;
         (rec.issueIds || []).forEach(function (iid) { issueCount[iid] = (issueCount[iid] || 0) + 1; });
@@ -254,7 +286,7 @@ const Store = {
       });
     });
     const days = Object.keys(daysSet).length;
-    const totalDeduct = indoorDeduct + outdoorDeduct;
+    const totalDeduct = classroomDeduct + cleanupDeduct;
     const rank = Store.getClasses().map(function (c) {
       return { id: c.id, name: c.name, deduct: classDeduct[c.id] || 0 };
     }).sort(function (a, b) { return a.deduct - b.deduct; });
@@ -262,7 +294,7 @@ const Store = {
       const it = Store.getIssue(iid);
       return { id: iid, name: it ? it.name : '已删除问题', count: issueCount[iid] };
     }).sort(function (a, b) { return b.count - a.count; });
-    return { rank: rank, issueTop: issueTop, days: days, totalDeduct: totalDeduct, indoorDeduct: indoorDeduct, outdoorDeduct: outdoorDeduct, avg: days ? (totalDeduct / days).toFixed(1) : '0' };
+    return { rank: rank, issueTop: issueTop, days: days, totalDeduct: totalDeduct, classroomDeduct: classroomDeduct, cleanupDeduct: cleanupDeduct, avg: days ? (totalDeduct / days).toFixed(1) : '0' };
   },
 
   exportAll() {
@@ -323,8 +355,8 @@ function renderCheck() {
   $('check-week-text').textContent = weekdayCN(state.checkDate);
   const areas = Store.getAreas();
   const sum = Store.daySummary(state.checkDate);
-  $('sum-indoor').textContent = sum.indoorDeduct;
-  $('sum-outdoor').textContent = sum.outdoorDeduct;
+  $('sum-indoor').textContent = sum.classroomDeduct;
+  $('sum-outdoor').textContent = sum.cleanupDeduct;
   $('sum-total').textContent = sum.deduct;
   const listEl = $('check-area-list');
   const emptyEl = $('check-empty');
@@ -346,11 +378,11 @@ function renderCheck() {
       '<span class="area-card-class">值日：' + (esc(cls) || '未设置') + '</span></div>' +
       statusHtml + '</div>';
   }
-  const indoor = areas.filter(function (a) { return a.type === 'indoor'; });
-  const outdoor = areas.filter(function (a) { return a.type === 'outdoor'; });
+  const classroom = areas.filter(function (a) { return a.type === 'classroom'; });
+  const cleanup = areas.filter(function (a) { return a.type === 'cleanup'; });
   let html = '';
-  if (indoor.length) html += '<div class="group-title-bar"><span class="group-dot indoor"></span>室内 <span class="group-count">' + indoor.length + ' 个区域</span></div>' + indoor.map(areaCard).join('');
-  if (outdoor.length) html += '<div class="group-title-bar"><span class="group-dot outdoor"></span>室外 <span class="group-count">' + outdoor.length + ' 个区域</span></div>' + outdoor.map(areaCard).join('');
+  if (classroom.length) html += '<div class="group-title-bar"><span class="group-dot classroom"></span>🏫 教室卫生 <span class="group-count">' + classroom.length + ' 个区域</span></div>' + classroom.map(areaCard).join('');
+  if (cleanup.length) html += '<div class="group-title-bar"><span class="group-dot cleanup"></span>🧹 清洁区 <span class="group-count">' + cleanup.length + ' 个区域</span></div>' + cleanup.map(areaCard).join('');
   listEl.innerHTML = html;
 }
 function openRecordSheet(areaId) {
@@ -650,8 +682,8 @@ function renderStats() {
   document.querySelectorAll('#stats-type .seg').forEach(function (b) { b.classList.toggle('active', b.dataset.type === state.statsType); });
   const range = statsRangeDates();
   const s = Store.summarize(range.from, range.to, state.statsType);
-  $('stat-indoor').textContent = s.indoorDeduct;
-  $('stat-outdoor').textContent = s.outdoorDeduct;
+  $('stat-indoor').textContent = s.classroomDeduct;
+  $('stat-outdoor').textContent = s.cleanupDeduct;
   $('stat-total-deduct').textContent = s.totalDeduct;
 
   const rankEl = $('stats-rank-list');
@@ -701,7 +733,7 @@ function renderAreaManage() {
   let html = '';
   areas.forEach(function (a) {
     const cls = Store.getClassName(a.defaultClassId);
-    const typeLabel = a.type === 'indoor' ? '<span class="type-tag indoor">🏠室内</span>' : '<span class="type-tag outdoor">🌳室外</span>';
+    const typeLabel = a.type === 'classroom' ? '<span class="type-tag classroom">🏫教室</span>' : '<span class="type-tag cleanup">🧹清洁区</span>';
     html += '<div class="manage-row" data-id="' + a.id + '">' +
       '<div class="manage-main"><span class="manage-name">' + esc(a.name) + '</span>' +
       '<span class="manage-sub">' + typeLabel + ' ' + (cls ? '值日：' + esc(cls) : '未设值日班级') + '</span></div>' +
@@ -739,14 +771,14 @@ function renderIssueManage() {
 function openAreaSheet(editingId) {
   state.editingAreaId = editingId;
   state.areaDefaultClass = '';
-  state.areaType = 'indoor';
+  state.areaType = 'classroom';
   const isEdit = !!editingId;
   $('area-sheet-title').textContent = isEdit ? '编辑地区' : '添加地区';
   $('area-delete').hidden = !isEdit;
   $('area-name').value = '';
   if (isEdit) {
     const a = Store.getArea(editingId);
-    if (a) { $('area-name').value = a.name; state.areaDefaultClass = a.defaultClassId || ''; state.areaType = a.type || 'indoor'; }
+    if (a) { $('area-name').value = a.name; state.areaDefaultClass = a.defaultClassId || ''; state.areaType = a.type || 'classroom'; }
   }
   renderAreaType();
   renderAreaDefaultClass();
