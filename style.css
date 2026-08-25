@@ -215,11 +215,11 @@ button { cursor: pointer; font-family: inherit; }
 /* ================= 检查页分组（室内/室外） ================= */
 .group-title-bar { display: flex; align-items: center; gap: 8px; margin: 16px 2px 10px; font-size: 15px; font-weight: 700; color: #374151; }
 .group-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
-.group-dot.indoor { background: #22c55e; }
-.group-dot.outdoor { background: #f59e0b; }
+.group-dot.classroom { background: #22c55e; }
+.group-dot.cleanup { background: #f59e0b; }
 .group-count { font-size: 12px; color: #9ca3af; font-weight: 400; }
 
 /* ================= 设置页 type 标签 ================= */
 .type-tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 6px; margin-right: 4px; }
-.type-tag.indoor { background: #f0fdf4; color: #16a34a; }
-.type-tag.outdoor { background: #fff7ed; color: #b45309; }
+.type-tag.classroom { background: #f0fdf4; color: #16a34a; }
+.type-tag.cleanup { background: #fff7ed; color: #b45309; }
