@@ -50,6 +50,20 @@
     </div>
   </section>
 
+  <!-- ============ 视图：扣分总览 ============ -->
+  <section id="view-overview" class="view">
+    <header class="topbar">
+      <button class="date-arrow" id="ov-prev" aria-label="前一天">‹</button>
+      <div class="date-center">
+        <div class="date-main" id="ov-date-text">今天</div>
+        <div class="date-sub" id="ov-week-text">--</div>
+      </div>
+      <button class="date-arrow" id="ov-next" aria-label="后一天">›</button>
+    </header>
+    <div class="ov-banner">📢 卫生检查扣分通报</div>
+    <div id="ov-content"></div>
+  </section>
+
   <!-- ============ 视图2：记录 ============ -->
   <section id="view-records" class="view">
     <header class="topbar">
@@ -150,7 +164,8 @@
   <!-- ============ 底部 Tab ============ -->
   <nav id="tabbar">
     <button class="tab active" data-view="check"><span class="tab-ico">✔</span><span>检查</span></button>
-    <button class="tab" data-view="records"><span class="tab-ico">📋</span><span>记录</span></button>
+    <button class="tab" data-view="overview"><span class="tab-ico">📋</span><span>总览</span></button>
+    <button class="tab" data-view="records"><span class="tab-ico">🗂</span><span>记录</span></button>
     <button class="tab" data-view="stats"><span class="tab-ico">📊</span><span>统计</span></button>
     <button class="tab" data-view="settings"><span class="tab-ico">⚙</span><span>设置</span></button>
   </nav>
