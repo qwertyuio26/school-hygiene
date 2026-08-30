@@ -42,10 +42,17 @@ var SCORE_ITEMS = [
   { id: 'personal', group: 'personal', name: '个人卫生', max: 10 }
 ];
 function groupItems(gid) { return SCORE_ITEMS.filter(function (i) { return i.group === gid; }); }
-function calcTotal(scores) {
+function calcTotal(items) {
   var t = 0;
-  SCORE_ITEMS.forEach(function (i) { t += (scores[i.id] != null ? Number(scores[i.id]) : 0); });
+  SCORE_ITEMS.forEach(function (i) {
+    var v = items[i.id];
+    if (v != null) t += (typeof v === 'object' ? (v.score != null ? Number(v.score) : 0) : Number(v));
+  });
   return t;
+}
+function itemVal(item) {
+  if (!item) return null;
+  return typeof item === 'object' ? (item.score != null ? item.score : null) : item;
 }
 
 /* ================= 图片存储 (IndexedDB) ================= */
@@ -121,6 +128,21 @@ function compressImage(file, cb) {
   img.src = url;
 }
 
+function itemProblems(rec) {
+  var out = [];
+  if (!rec || !rec.items) return out;
+  SCORE_ITEMS.forEach(function (it) {
+    var item = rec.items[it.id];
+    if (!item) return;
+    var has = item.note || (item.imgIds && item.imgIds.length) || (item.score != null && Number(item.score) < it.max);
+    if (has) {
+      var g = SCORE_GROUPS.filter(function (x) { return x.id === it.group; })[0];
+      out.push({ groupName: g ? g.name : '', name: it.name, score: item.score, max: it.max, note: item.note, imgIds: item.imgIds || [] });
+    }
+  });
+  return out;
+}
+
 /* ================= 预置数据 ================= */
 var DEFAULT_CLASSES = [
   { id: 'c01', name: '九2 杨明仙' }, { id: 'c02', name: '七6 熊贵云' }, { id: 'c03', name: '九7 左丽' },
@@ -142,6 +164,35 @@ var Store = {
     if (read(KEYS.classes) == null) write(KEYS.classes, DEFAULT_CLASSES.map(function (c) { return { id: c.id, name: c.name }; }));
     if (read(KEYS.notes) == null) write(KEYS.notes, DEFAULT_NOTES.map(function (n, i) { return { id: 'n' + (i + 1), name: n }; }));
     if (read(KEYS.records) == null) write(KEYS.records, {});
+    var r = read(KEYS.records);
+    var dates = r ? Object.keys(r) : [];
+    var needsMigrate = false;
+    for (var i = 0; i < dates.length; i++) {
+      var day = r[dates[i]];
+      var cids = Object.keys(day);
+      for (var j = 0; j < cids.length; j++) {
+        if (day[cids[j]] && day[cids[j]].scores) { needsMigrate = true; break; }
+      }
+      if (needsMigrate) break;
+    }
+    if (needsMigrate) {
+      dates.forEach(function (date) {
+        Object.keys(r[date]).forEach(function (cid) {
+          var rec = r[date][cid];
+          if (rec && rec.scores) {
+            var items = {};
+            SCORE_ITEMS.forEach(function (it) {
+              items[it.id] = { score: rec.scores[it.id] != null ? rec.scores[it.id] : it.max, note: '', imgIds: [] };
+            });
+            var nr = { items: items, time: rec.time || '' };
+            if (rec.note) nr.note = rec.note;
+            if (rec.imgIds && rec.imgIds.length) nr.imgIds = rec.imgIds;
+            r[date][cid] = nr;
+          }
+        });
+      });
+      write(KEYS.records, r);
+    }
   },
   getClasses: function () { return read(KEYS.classes) || []; },
   saveClasses: function (v) { write(KEYS.classes, v); },
@@ -185,7 +236,7 @@ var Store = {
     var done = 0, sum = 0, top = 0;
     classes.forEach(function (c) {
       var rec = day[c.id];
-      if (rec) { done++; var t = calcTotal(rec.scores); sum += t; if (t > top) top = t; }
+      if (rec) { done++; var t = calcTotal(rec.items || rec.scores); sum += t; if (t > top) top = t; }
     });
     return { done: done, avg: done ? Math.round(sum / done * 10) / 10 : 0, top: top, total: classes.length };
   },
@@ -201,13 +252,14 @@ var Store = {
       Object.keys(r[date]).forEach(function (cid) {
         if (!result[cid]) return;
         var rec = r[date][cid];
-        var t = calcTotal(rec.scores);
+        var t = calcTotal(rec.items || rec.scores);
         result[cid].days++;
         result[cid].sum += t;
         SCORE_GROUPS.forEach(function (g) {
           var gs = 0, has = false;
           SCORE_ITEMS.forEach(function (it) {
-            if (it.group === g.id && rec.scores[it.id] != null) { gs += Number(rec.scores[it.id]); has = true; }
+            var v = itemVal(rec.items ? rec.items[it.id] : rec.scores[it.id]);
+            if (it.group === g.id && v != null) { gs += Number(v); has = true; }
           });
           if (has) {
             if (g.id === 'classroom') { result[cid].roomSum += gs; result[cid].roomDays++; }
@@ -301,8 +353,13 @@ function renderCheck() {
     var rec = day[c.id];
     var statusHtml;
     if (!rec) statusHtml = '<span class="class-state unchecked">未评分</span>';
-    else statusHtml = '<span class="class-state scored">' + calcTotal(rec.scores) + ' 分</span>';
-    var note = rec && rec.note ? '<div class="class-note">📝 ' + esc(rec.note) + '</div>' : '';
+    else statusHtml = '<span class="class-state scored">' + calcTotal(rec.items || rec.scores) + ' 分</span>';
+    var note = '';
+    if (rec && rec.note) note += '<div class="class-note">📝 ' + esc(rec.note) + '</div>';
+    if (rec) {
+      var pc = itemProblems(rec).length;
+      if (pc > 0) note += '<div class="class-note warn">⚠ ' + pc + ' 项有问题</div>';
+    }
     html += '<div class="class-card" data-cid="' + c.id + '">' +
       '<div class="class-card-main"><span class="class-name">' + esc(c.name) + '</span>' + note + '</div>' +
       statusHtml + '</div>';
@@ -315,23 +372,39 @@ function openScoreSheet(classId) {
   var cls = Store.getClasses().filter(function (x) { return x.id === classId; })[0];
   $('score-sheet-title').textContent = (cls ? cls.name : '') + ' 打分';
   var existing = Store.getDayClass(state.checkDate, classId);
-  var scores = {};
-  SCORE_ITEMS.forEach(function (it) { scores[it.id] = existing && existing.scores[it.id] != null ? existing.scores[it.id] : it.max; });
-  state.scoreDraft = { scores: scores, note: existing ? (existing.note || '') : '', noteIds: existing && existing.noteIds ? existing.noteIds.slice() : [], imgs: [], oldImgIds: existing && existing.imgIds ? existing.imgIds.slice() : [] };
+  var items = {};
+  SCORE_ITEMS.forEach(function (it) {
+    var old = existing && existing.items ? existing.items[it.id] : null;
+    items[it.id] = {
+      score: old && old.score != null ? old.score : it.max,
+      note: old ? (old.note || '') : '',
+      imgs: [],
+      oldImgIds: old && old.imgIds ? old.imgIds.slice() : []
+    };
+  });
+  state.scoreDraft = { items: items, note: existing ? (existing.note || '') : '', noteIds: existing && existing.noteIds ? existing.noteIds.slice() : [] };
   SCORE_GROUPS.forEach(function (g) {
     var el = $('score-group-' + g.id);
     var html = '';
     groupItems(g.id).forEach(function (it) {
-      html += '<div class="score-row"><span class="score-name">' + esc(it.name) + '</span>' +
-        '<input type="number" class="score-input" data-item="' + it.id + '" min="0" max="' + it.max + '" value="' + scores[it.id] + '">' +
-        '<span class="score-max">/ ' + it.max + '</span></div>';
+      var d = items[it.id];
+      html += '<div class="score-row" data-item="' + it.id + '">' +
+        '<div class="score-row-top"><span class="score-name">' + esc(it.name) + '</span>' +
+        '<input type="number" class="score-input" data-item="' + it.id + '" min="0" max="' + it.max + '" value="' + d.score + '">' +
+        '<span class="score-max">/ ' + it.max + '</span></div>' +
+        '<div class="score-row-extra">' +
+        '<input type="text" class="item-note" data-item="' + it.id + '" placeholder="该项备注（如：有纸屑）" maxlength="30" value="' + esc(d.note) + '">' +
+        '<label class="item-img-btn"><input type="file" class="item-img-input" data-item="' + it.id + '" accept="image/*" hidden><span class="item-img-ico">📷</span></label>' +
+        '</div>' +
+        '<div class="item-imgs" data-item="' + it.id + '"></div>' +
+        '</div>';
     });
     el.innerHTML = html;
+    groupItems(g.id).forEach(function (it) { renderItemImgs(it.id); });
   });
   renderNoteChips();
   $('score-note-input').value = state.scoreDraft.note;
-  $('score-total-val').textContent = calcTotal(scores);
-  renderScoreImgs();
+  $('score-total-val').textContent = calcTotal(items);
   $('score-mask').hidden = false;
   $('score-sheet').hidden = false;
 }
@@ -348,17 +421,16 @@ function closeScoreSheet() {
 }
 function onScoreInput() {
   if (!state.scoreDraft) return;
-  var scores = state.scoreDraft.scores;
   SCORE_ITEMS.forEach(function (it) {
     var el = document.querySelector('.score-input[data-item="' + it.id + '"]');
     if (el) {
       var v = parseInt(el.value, 10);
       if (isNaN(v) || v < 0) v = 0;
       if (v > it.max) v = it.max;
-      scores[it.id] = v;
+      state.scoreDraft.items[it.id].score = v;
     }
   });
-  $('score-total-val').textContent = calcTotal(scores);
+  $('score-total-val').textContent = calcTotal(state.scoreDraft.items);
 }
 function renderNoteChips() {
   var notes = Store.getNotes();
@@ -384,48 +456,47 @@ function toggleNoteChip(nid) {
   $('score-note-input').value = draft.note;
   renderNoteChips();
 }
-function renderScoreImgs() {
-  var draft = state.scoreDraft;
-  var el = $('score-imgs');
+function renderItemImgs(itemId) {
+  var d = state.scoreDraft.items[itemId];
+  var el = document.querySelector('.item-imgs[data-item="' + itemId + '"]');
+  if (!el) return;
   var html = '';
-  (draft.imgs || []).forEach(function (data, i) {
-    html += '<div class="img-thumb"><img src="' + data + '" alt="照片"><span class="img-thumb-del" data-src="new" data-idx="' + i + '">✕</span></div>';
+  (d.imgs || []).forEach(function (data, i) {
+    html += '<div class="img-thumb"><img src="' + data + '" alt=""><span class="img-thumb-del" data-item="' + itemId + '" data-kind="new" data-idx="' + i + '">✕</span></div>';
   });
-  (draft.oldImgIds || []).forEach(function (id, i) {
-    html += '<div class="img-thumb"><img data-imgid="' + id + '" data-idx="' + i + '" alt="照片"><span class="img-thumb-del" data-src="old" data-idx="' + i + '">✕</span></div>';
+  (d.oldImgIds || []).forEach(function (id, i) {
+    html += '<div class="img-thumb"><img data-imgid="' + id + '" alt=""><span class="img-thumb-del" data-item="' + itemId + '" data-kind="old" data-idx="' + i + '">✕</span></div>';
   });
   el.innerHTML = html;
-  (draft.oldImgIds || []).forEach(function (id, i) {
+  (d.oldImgIds || []).forEach(function (id) {
     ImgDB.get(id).then(function (data) {
       var imgs = el.querySelectorAll('.img-thumb img');
-      if (data) {
-        for (var k = 0; k < imgs.length; k++) {
-          if (imgs[k].dataset.imgid === id) { imgs[k].src = data; break; }
-        }
+      for (var k = 0; k < imgs.length; k++) {
+        if (imgs[k].dataset.imgid === id) { imgs[k].src = data; break; }
       }
     }).catch(function () {});
   });
 }
-function handleImgFile(file) {
-  var draft = state.scoreDraft;
-  if (!draft) return;
-  if ((draft.imgs.length + draft.oldImgIds.length) >= 3) { toast('最多 3 张照片'); return; }
+function handleItemImgFile(itemId, file) {
+  var d = state.scoreDraft.items[itemId];
+  if (!d) return;
+  if ((d.imgs.length + d.oldImgIds.length) >= 3) { toast('该项最多 3 张照片'); return; }
   compressImage(file, function (data) {
     if (!data) { toast('图片处理失败'); return; }
-    draft.imgs.push(data);
-    renderScoreImgs();
+    d.imgs.push(data);
+    renderItemImgs(itemId);
   });
 }
-function delDraftImg(kind, idx) {
-  var draft = state.scoreDraft;
-  if (!draft) return;
-  if (kind === 'new') { draft.imgs.splice(idx, 1); }
+function delItemImg(itemId, kind, idx) {
+  var d = state.scoreDraft.items[itemId];
+  if (!d) return;
+  if (kind === 'new') d.imgs.splice(idx, 1);
   else {
-    var id = draft.oldImgIds[idx];
-    draft.oldImgIds.splice(idx, 1);
+    var id = d.oldImgIds[idx];
+    d.oldImgIds.splice(idx, 1);
     ImgDB.del(id).catch(function () {});
   }
-  renderScoreImgs();
+  renderItemImgs(itemId);
 }
 
 function onScoreSave() {
@@ -433,27 +504,34 @@ function onScoreSave() {
   if (!draft) return;
   onScoreInput();
   var customNote = $('score-note-input').value.trim();
-  var imgIds = draft.oldImgIds ? draft.oldImgIds.slice() : [];
-  var imgs = draft.imgs || [];
+  SCORE_ITEMS.forEach(function (it) {
+    var el = document.querySelector('.item-note[data-item="' + it.id + '"]');
+    if (el) draft.items[it.id].note = el.value.trim();
+  });
+  var tasks = [];
+  SCORE_ITEMS.forEach(function (it) {
+    (draft.items[it.id].imgs || []).forEach(function (data) {
+      tasks.push({ itemId: it.id, data: data });
+    });
+  });
   function finish() {
-    var rec = {
-      scores: draft.scores,
-      note: customNote,
-      noteIds: draft.noteIds,
-      time: nowTime(),
-      imgIds: imgIds
-    };
+    var rec = { items: {}, time: nowTime() };
+    SCORE_ITEMS.forEach(function (it) {
+      var d = draft.items[it.id];
+      rec.items[it.id] = { score: d.score, note: d.note || '', imgIds: d.oldImgIds ? d.oldImgIds.slice() : [] };
+    });
+    if (customNote) rec.note = customNote;
     Store.setDayClass(state.checkDate, state.scoringClassId, rec);
     closeScoreSheet();
     renderCheck();
-    toast('已保存 ' + calcTotal(draft.scores) + ' 分');
+    toast('已保存 ' + calcTotal(rec.items) + ' 分');
   }
-  if (imgs.length) {
-    var pending = imgs.length;
-    imgs.forEach(function (data) {
+  if (tasks.length) {
+    var pending = tasks.length;
+    tasks.forEach(function (task) {
       var id = uid('img');
-      ImgDB.put(id, data).then(function () {
-        imgIds.push(id);
+      ImgDB.put(id, task.data).then(function () {
+        draft.items[task.itemId].oldImgIds.push(id);
         pending--;
         if (pending === 0) finish();
       }).catch(function () { pending--; if (pending === 0) finish(); });
@@ -468,7 +546,7 @@ function renderOverview() {
   var day = Store.getDay(state.ovDate);
   var el = $('ov-content');
   var scored = classes.filter(function (c) { return day[c.id]; }).map(function (c) {
-    return { c: c, rec: day[c.id], total: calcTotal(day[c.id].scores) };
+    return { c: c, rec: day[c.id], total: calcTotal(day[c.id].items || day[c.id].scores) };
   }).sort(function (a, b) { return b.total - a.total; });
   if (!scored.length) {
     el.innerHTML = '<div class="ov-clean"><div class="ov-clean-emoji">🎉</div><p>当天暂无评分</p><p class="ov-clean-sub">所有班级尚未打分</p></div>';
@@ -478,16 +556,24 @@ function renderOverview() {
   var medals = ['🥇', '🥈', '🥉'];
   scored.forEach(function (s, i) {
     var rankTxt = i < 3 ? medals[i] : (i + 1) + '';
-    var note = s.rec.note ? '<div class="ov-issues"><span class="ov-issue">📝 ' + esc(s.rec.note) + '</span></div>' : '';
-    var imgsHtml = '';
-    if (s.rec.imgIds && s.rec.imgIds.length) {
-      imgsHtml = '<div class="ov-imgs">' + s.rec.imgIds.map(function (id) {
-        return '<img class="ov-img" data-imgid="' + id + '" src="" alt="问题照片">';
+    var problems = itemProblems(s.rec);
+    var problemsHtml = '';
+    if (problems.length) {
+      problemsHtml = '<div class="ov-problems">' + problems.map(function (p) {
+        var imgs = p.imgIds.map(function (id) {
+          return '<img class="ov-img" data-imgid="' + id + '" src="" alt="问题照片">';
+        }).join('');
+        return '<div class="ov-problem"><span class="ov-problem-name">' + esc(p.groupName) + '·' + esc(p.name) + '</span>' +
+          (p.score != null && Number(p.score) < p.max ? '<span class="ov-problem-score">' + p.score + '/' + p.max + '</span>' : '') +
+          (p.note ? '<span class="ov-problem-note">' + esc(p.note) + '</span>' : '') +
+          (imgs ? '<span class="ov-imgs">' + imgs + '</span>' : '') +
+          '</div>';
       }).join('') + '</div>';
     }
+    var note = s.rec.note ? '<div class="ov-issues"><span class="ov-issue">📝 ' + esc(s.rec.note) + '</span></div>' : '';
     html += '<div class="ov-row"><div class="ov-head"><span class="ov-rank">' + rankTxt + '</span>' +
       '<span class="ov-area">' + esc(s.c.name) + '</span>' +
-      '<span class="ov-deduct">' + s.total + ' 分</span></div>' + note + imgsHtml + '</div>';
+      '<span class="ov-deduct">' + s.total + ' 分</span></div>' + problemsHtml + note + '</div>';
   });
   var sum = 0;
   scored.forEach(function (s) { sum += s.total; });
@@ -513,20 +599,27 @@ function renderRecords() {
   var html = '';
   scored.forEach(function (c) {
     var rec = day[c.id];
-    var total = calcTotal(rec.scores);
+    var total = calcTotal(rec.items || rec.scores);
     var itemsHtml = '';
     SCORE_GROUPS.forEach(function (g) {
       var names = groupItems(g.id).map(function (it) {
-        return it.name + ' ' + (rec.scores[it.id] != null ? rec.scores[it.id] : '-');
+        var item = rec.items ? rec.items[it.id] : null;
+        var v = item ? item.score : '-';
+        var n = item && item.note ? '（' + item.note + '）' : '';
+        return it.name + ' ' + v + n;
       }).join(' · ');
       itemsHtml += '<div class="rec-group"><span class="rec-group-name">' + g.name + '</span><span class="rec-group-vals">' + esc(names) + '</span></div>';
     });
     var note = rec.note ? '<div class="rec-note">📝 ' + esc(rec.note) + '</div>' : '';
     var imgsHtml = '';
-    if (rec.imgIds && rec.imgIds.length) {
-      imgsHtml = '<div class="rec-imgs">' + rec.imgIds.map(function (id) {
-        return '<img class="rec-img" data-imgid="' + id + '" src="" alt="问题照片">';
-      }).join('') + '</div>';
+    if (rec.items) {
+      SCORE_ITEMS.forEach(function (it) {
+        var item = rec.items[it.id];
+        if (item && item.imgIds && item.imgIds.length) {
+          item.imgIds.forEach(function (id) { imgsHtml += '<img class="rec-img" data-imgid="' + id + '" src="" alt="问题照片">'; });
+        }
+      });
+      if (imgsHtml) imgsHtml = '<div class="rec-imgs">' + imgsHtml + '</div>';
     }
     html += '<div class="rec-card" data-cid="' + c.id + '">' +
       '<div class="rec-head"><span class="rec-class">' + esc(c.name) + '</span>' +
@@ -741,11 +834,14 @@ function bindEvents() {
   $('score-cancel').addEventListener('click', closeScoreSheet);
   $('score-save').addEventListener('click', onScoreSave);
   $('score-mask').addEventListener('click', closeScoreSheet);
-  $('score-img-camera').addEventListener('change', function (e) { if (e.target.files[0]) handleImgFile(e.target.files[0]); e.target.value = ''; });
-  $('score-img-album').addEventListener('change', function (e) { if (e.target.files[0]) handleImgFile(e.target.files[0]); e.target.value = ''; });
-  $('score-imgs').addEventListener('click', function (e) {
+  $('score-sheet').addEventListener('change', function (e) {
+    var input = e.target.closest('.item-img-input');
+    if (input && e.target.files && e.target.files[0]) handleItemImgFile(input.dataset.item, e.target.files[0]);
+    if (input) e.target.value = '';
+  });
+  $('score-sheet').addEventListener('click', function (e) {
     var del = e.target.closest('.img-thumb-del');
-    if (del) { delDraftImg(del.dataset.src, parseInt(del.dataset.idx, 10)); return; }
+    if (del) { delItemImg(del.dataset.item, del.dataset.kind, parseInt(del.dataset.idx, 10)); return; }
     var thumb = e.target.closest('.img-thumb img');
     if (thumb && thumb.src) { $('img-viewer-src').src = thumb.src; $('img-mask').hidden = false; $('img-viewer').hidden = false; }
   });
