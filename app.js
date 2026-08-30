@@ -1,95 +1,55 @@
 'use strict';
 
 /* ================= 工具 ================= */
-function uid(prefix) { return (prefix || 'x') + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
-
-function esc(s) {
-  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-  });
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function uid(p) { return p + '_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
+function pad(n) { return n < 10 ? '0' + n : '' + n; }
+function todayStr() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function addDays(dateStr, n) {
+  var p = dateStr.split('-');
+  var d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10) + n);
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+}
+function dateText(s) { var p = s.split('-'); return p[0] + '年' + parseInt(p[1], 10) + '月' + parseInt(p[2], 10) + '日'; }
+function weekdayCN(s) { var p = s.split('-'); var d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10)); return '周' + '日一二三四五六'[d.getDay()]; }
+function nowTime() { var d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+function weekStartStr() { var d = new Date(); var day = d.getDay() || 7; d.setDate(d.getDate() - day + 1); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function monthStartStr() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-01'; }
+function classSortKey(name) {
+  var m = name.match(/^([七八九])(\d+)/);
+  if (!m) return name;
+  var g = '七八九'.indexOf(m[1]) + 7;
+  return String(g) + '-' + String(parseInt(m[2], 10)).padStart(2, '0');
 }
 
-function fmtDate(dt) {
-  const y = dt.getFullYear();
-  const m = String(dt.getMonth() + 1).padStart(2, '0');
-  const d = String(dt.getDate()).padStart(2, '0');
-  return y + '-' + m + '-' + d;
+/* ================= 评分配置 ================= */
+var SCORE_GROUPS = [
+  { id: 'classroom', name: '教室', full: 50 },
+  { id: 'cleanup', name: '清洁区', full: 40 },
+  { id: 'personal', name: '个人卫生', full: 10 }
+];
+var SCORE_ITEMS = [
+  { id: 'c_floor', group: 'classroom', name: '地面', max: 10 },
+  { id: 'c_desk', group: 'classroom', name: '桌椅讲台', max: 10 },
+  { id: 'c_window', group: 'classroom', name: '门窗玻璃', max: 10 },
+  { id: 'c_corner', group: 'classroom', name: '卫生角和个人物品', max: 10 },
+  { id: 'c_maintain', group: 'classroom', name: '平时维护', max: 10 },
+  { id: 'q_floor', group: 'cleanup', name: '地面', max: 10 },
+  { id: 'q_facility', group: 'cleanup', name: '公共设施', max: 10 },
+  { id: 'q_green', group: 'cleanup', name: '绿化区', max: 10 },
+  { id: 'q_maintain', group: 'cleanup', name: '平时维护', max: 10 },
+  { id: 'personal', group: 'personal', name: '个人卫生', max: 10 }
+];
+function groupItems(gid) { return SCORE_ITEMS.filter(function (i) { return i.group === gid; }); }
+function calcTotal(scores) {
+  var t = 0;
+  SCORE_ITEMS.forEach(function (i) { t += (scores[i.id] != null ? Number(scores[i.id]) : 0); });
+  return t;
 }
-function todayStr() { return fmtDate(new Date()); }
-function parseDate(s) { const p = s.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
-function addDays(s, n) { const d = parseDate(s); return fmtDate(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n)); }
-function nowTime() { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
-
-const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
-function weekdayCN(s) { return '周' + WEEK[parseDate(s).getDay()]; }
-function dateText(s) {
-  const t = todayStr();
-  if (s === t) return '今天';
-  if (s === addDays(t, -1)) return '昨天';
-  if (s === addDays(t, 1)) return '明天';
-  const p = s.split('-').map(Number);
-  return p[1] + '月' + p[2] + '日';
-}
-
-/* ================= 图片存储 (IndexedDB) ================= */
-const ImgDB = {
-  _db: null,
-  _open() {
-    return new Promise(function (resolve, reject) {
-      if (ImgDB._db) return resolve(ImgDB._db);
-      if (!('indexedDB' in window)) return reject(new Error('no indexedDB'));
-      const req = indexedDB.open('hygiene_imgs', 1);
-      req.onupgradeneeded = function (e) {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains('imgs')) db.createObjectStore('imgs');
-      };
-      req.onsuccess = function (e) { ImgDB._db = e.target.result; resolve(ImgDB._db); };
-      req.onerror = function (e) { reject(e.target.error); };
-    });
-  },
-  put(id, dataUrl) {
-    return ImgDB._open().then(function (db) {
-      return new Promise(function (resolve, reject) {
-        const tx = db.transaction('imgs', 'readwrite');
-        tx.objectStore('imgs').put(dataUrl, id);
-        tx.oncomplete = function () { resolve(); };
-        tx.onerror = function (e) { reject(e); };
-      });
-    });
-  },
-  get(id) {
-    return ImgDB._open().then(function (db) {
-      return new Promise(function (resolve, reject) {
-        const req = db.transaction('imgs').objectStore('imgs').get(id);
-        req.onsuccess = function () { resolve(req.result || null); };
-        req.onerror = function (e) { reject(e); };
-      });
-    });
-  },
-  del(id) {
-    return ImgDB._open().then(function (db) {
-      return new Promise(function (resolve, reject) {
-        const tx = db.transaction('imgs', 'readwrite');
-        tx.objectStore('imgs').delete(id);
-        tx.oncomplete = function () { resolve(); };
-        tx.onerror = function (e) { reject(e); };
-      });
-    });
-  },
-  clear() {
-    return ImgDB._open().then(function (db) {
-      return new Promise(function (resolve, reject) {
-        const tx = db.transaction('imgs', 'readwrite');
-        tx.objectStore('imgs').clear();
-        tx.oncomplete = function () { resolve(); };
-        tx.onerror = function (e) { reject(e); };
-      });
-    });
-  }
-};
 
 /* ================= 预置数据 ================= */
-const DEFAULT_CLASSES = [
+var DEFAULT_CLASSES = [
   { id: 'c01', name: '九2 杨明仙' }, { id: 'c02', name: '七6 熊贵云' }, { id: 'c03', name: '九7 左丽' },
   { id: 'c04', name: '八4 杨梅' }, { id: 'c05', name: '九3 胡旺' }, { id: 'c06', name: '八6 陈英权' },
   { id: 'c07', name: '九6 徐勇' }, { id: 'c08', name: '九1 周美' }, { id: 'c09', name: '八1 陈大超' },
@@ -98,552 +58,280 @@ const DEFAULT_CLASSES = [
   { id: 'c16', name: '七4 雪莲' }, { id: 'c17', name: '九4 杨松' }, { id: 'c18', name: '七3 黄苇' },
   { id: 'c19', name: '七7 陈兴' }, { id: 'c20', name: '七5 刘玲' }, { id: 'c21', name: '七2 张莹' }
 ];
-const DEFAULT_AREAS = [
-  { id: 'a_c01', name: '九2班教室', type: 'classroom', defaultClassId: 'c01' },
-  { id: 'a_c02', name: '七6班教室', type: 'classroom', defaultClassId: 'c02' },
-  { id: 'a_c03', name: '九7班教室', type: 'classroom', defaultClassId: 'c03' },
-  { id: 'a_c04', name: '八4班教室', type: 'classroom', defaultClassId: 'c04' },
-  { id: 'a_c05', name: '九3班教室', type: 'classroom', defaultClassId: 'c05' },
-  { id: 'a_c06', name: '八6班教室', type: 'classroom', defaultClassId: 'c06' },
-  { id: 'a_c07', name: '九6班教室', type: 'classroom', defaultClassId: 'c07' },
-  { id: 'a_c08', name: '九1班教室', type: 'classroom', defaultClassId: 'c08' },
-  { id: 'a_c09', name: '八1班教室', type: 'classroom', defaultClassId: 'c09' },
-  { id: 'a_c10', name: '八5班教室', type: 'classroom', defaultClassId: 'c10' },
-  { id: 'a_c11', name: '八3班教室', type: 'classroom', defaultClassId: 'c11' },
-  { id: 'a_c12', name: '八2班教室', type: 'classroom', defaultClassId: 'c12' },
-  { id: 'a_c13', name: '七1班教室', type: 'classroom', defaultClassId: 'c13' },
-  { id: 'a_c14', name: '八7班教室', type: 'classroom', defaultClassId: 'c14' },
-  { id: 'a_c15', name: '九5班教室', type: 'classroom', defaultClassId: 'c15' },
-  { id: 'a_c16', name: '七4班教室', type: 'classroom', defaultClassId: 'c16' },
-  { id: 'a_c17', name: '九4班教室', type: 'classroom', defaultClassId: 'c17' },
-  { id: 'a_c18', name: '七3班教室', type: 'classroom', defaultClassId: 'c18' },
-  { id: 'a_c19', name: '七7班教室', type: 'classroom', defaultClassId: 'c19' },
-  { id: 'a_c20', name: '七5班教室', type: 'classroom', defaultClassId: 'c20' },
-  { id: 'a_c21', name: '七2班教室', type: 'classroom', defaultClassId: 'c21' },
-  { id: 'a01', name: '教学楼左楼梯及楼梯脚', type: 'cleanup', defaultClassId: 'c01' },
-  { id: 'a02', name: '教学楼右楼梯、校长室及教务处平台', type: 'cleanup', defaultClassId: 'c02' },
-  { id: 'a03', name: '教学楼前左边平台及花坛', type: 'cleanup', defaultClassId: 'c03' },
-  { id: 'a04', name: '教学楼前右边平台及花坛', type: 'cleanup', defaultClassId: 'c04' },
-  { id: 'a05', name: '教学楼前大楼梯及花坛、黄土坡、洗手池', type: 'cleanup', defaultClassId: 'c05' },
-  { id: 'a06', name: '综合楼（过道阳台、党建、阶梯教室）', type: 'cleanup', defaultClassId: 'c06' },
-  { id: 'a07', name: '综合楼周围及大办公室路段', type: 'cleanup', defaultClassId: 'c07' },
-  { id: 'a08', name: '教学楼前楼梯到操场及花坛', type: 'cleanup', defaultClassId: 'c08' },
-  { id: 'a09', name: '操场大门侧（挡车球内）及花坛', type: 'cleanup', defaultClassId: 'c09' },
-  { id: 'a10', name: '操场党建侧下水沟及平台', type: 'cleanup', defaultClassId: 'c10' },
-  { id: 'a11', name: '操场舞台、平台及台阶', type: 'cleanup', defaultClassId: 'c11' },
-  { id: 'a12', name: '操场舞台河边花坛', type: 'cleanup', defaultClassId: 'c12' },
-  { id: 'a13', name: '舞台后男生宿舍前花坛', type: 'cleanup', defaultClassId: 'c13' },
-  { id: 'a14', name: '男生宿舍后乒乓球场、洗手池及花坛', type: 'cleanup', defaultClassId: 'c14' },
-  { id: 'a15', name: '食堂垃圾倾倒', type: 'cleanup', defaultClassId: 'c15' },
-  { id: 'a16', name: '女厕所', type: 'cleanup', defaultClassId: 'c16' },
-  { id: 'a17', name: '男厕所', type: 'cleanup', defaultClassId: 'c17' },
-  { id: 'a18', name: '垃圾池及周围', type: 'cleanup', defaultClassId: 'c18' },
-  { id: 'a19', name: '桥上到老教师周转房周边', type: 'cleanup', defaultClassId: 'c19' },
-  { id: 'a20', name: '文化墙前到新教师周转房及黄土坡', type: 'cleanup', defaultClassId: 'c20' },
-  { id: 'a21', name: '教学楼前到厕所、女生宿舍路段', type: 'cleanup', defaultClassId: 'c21' }
-];
-const DEFAULT_ISSUES = [
-  { id: 'i_laji', name: '地面有垃圾/纸屑', deduction: 2 },
-  { id: 'i_wuzi', name: '地面有污渍/积水', deduction: 1 },
-  { id: 'i_zhuoyi', name: '桌椅摆放不整齐', deduction: 1 },
-  { id: 'i_heiban', name: '黑板未擦净', deduction: 1 },
-  { id: 'i_jiangtai', name: '讲台物品杂乱', deduction: 1 },
-  { id: 'i_lajitong', name: '垃圾桶未清理', deduction: 2 },
-  { id: 'i_menchuang', name: '门窗玻璃有灰尘', deduction: 1 },
-  { id: 'i_gongju', name: '卫生工具摆放乱', deduction: 1 },
-  { id: 'i_qiangbi', name: '墙壁有涂鸦/污迹', deduction: 2 },
-  { id: 'i_zhizhu', name: '蜘蛛网未清理', deduction: 1 },
-  { id: 'i_zoulang', name: '走廊/楼梯未打扫', deduction: 2 },
-  { id: 'i_cesuo', name: '厕所异味/不洁', deduction: 2 },
-  { id: 'i_qita', name: '其他问题', deduction: 1 }
-];
-/* ================= 数据层 ================= */
-const KEYS = { classes: 'hygiene_classes', areas: 'hygiene_areas', issues: 'hygiene_issues', records: 'hygiene_records', settings: 'hygiene_settings' };
+var DEFAULT_NOTES = ['不干净', '未打扫', '有垃圾', '灰尘多', '摆放不整齐', '有污渍', '门窗未擦', '未及时维护'];
 
-function read(key, fallback) { try { const v = JSON.parse(localStorage.getItem(key)); return v == null ? fallback : v; } catch (e) { return fallback; } }
-function write(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
-
-const Store = {
-  getClasses() { return read(KEYS.classes, []); },
-  saveClasses(v) { write(KEYS.classes, v); },
-  getAreas() { return read(KEYS.areas, []); },
-  saveAreas(v) { write(KEYS.areas, v); },
-  getIssues() { return read(KEYS.issues, []); },
-  saveIssues(v) { write(KEYS.issues, v); },
-  getRecords() { return read(KEYS.records, {}); },
-  saveRecords(v) { write(KEYS.records, v); },
-
-  seed() {
-    // v1->v2 迁移：旧版 classes 带 areas 字段、records 为嵌套对象（自动清理，避免新结构读取报错）
-    const oldClasses = Store.getClasses();
-    if (oldClasses.length > 0 && Array.isArray(oldClasses[0].areas)) {
-      write(KEYS.classes, oldClasses.map(function (c) { return { id: c.id, name: c.name }; }));
-    }
-    const oldRecords = Store.getRecords();
-    const firstDate = Object.keys(oldRecords)[0];
-    if (firstDate && !Array.isArray(oldRecords[firstDate])) {
-      localStorage.removeItem(KEYS.records);
-    }
-    // v3 迁移：旧地区无 type 字段 -> 用新预置替换
-    const oldAreas = Store.getAreas();
-    if (oldAreas.length > 0 && oldAreas[0].type === undefined) {
-      localStorage.removeItem(KEYS.areas);
-    }
-    // v4 迁移：旧 indoor/outdoor 分类 -> 清洁区，并补充教室区域
-    const curAreas = Store.getAreas();
-    if (curAreas.length > 0 && (curAreas[0].type === 'indoor' || curAreas[0].type === 'outdoor')) {
-      const cleaned = curAreas.map(function (a) { return { id: a.id, name: a.name, type: 'cleanup', defaultClassId: a.defaultClassId || '' }; });
-      DEFAULT_AREAS.forEach(function (da) {
-        if (da.type === 'classroom' && !cleaned.some(function (a) { return a.id === da.id; })) {
-          cleaned.push({ id: da.id, name: da.name, type: 'classroom', defaultClassId: da.defaultClassId });
-        }
-      });
-      write(KEYS.areas, cleaned);
-    }
-    if (localStorage.getItem(KEYS.classes) == null) write(KEYS.classes, DEFAULT_CLASSES.map(function (c) { return { id: c.id, name: c.name }; }));
-    if (localStorage.getItem(KEYS.areas) == null) write(KEYS.areas, DEFAULT_AREAS.map(function (a) { return { id: a.id, name: a.name, type: a.type, defaultClassId: a.defaultClassId }; }));
-    if (localStorage.getItem(KEYS.issues) == null) write(KEYS.issues, DEFAULT_ISSUES.map(function (i) { return { id: i.id, name: i.name, deduction: i.deduction }; }));
+/* ================= 存储 ================= */
+var KEYS = { classes: 'h6_classes', notes: 'h6_notes', records: 'h6_records' };
+function read(k) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+function write(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { toast('存储空间不足'); } }
+var Store = {
+  seed: function () {
+    if (read(KEYS.classes) == null) write(KEYS.classes, DEFAULT_CLASSES.map(function (c) { return { id: c.id, name: c.name }; }));
+    if (read(KEYS.notes) == null) write(KEYS.notes, DEFAULT_NOTES.map(function (n, i) { return { id: 'n' + (i + 1), name: n }; }));
+    if (read(KEYS.records) == null) write(KEYS.records, {});
   },
-
-  getArea(id) { return Store.getAreas().filter(function (a) { return a.id === id; })[0] || null; },
-  getIssue(id) { return Store.getIssues().filter(function (i) { return i.id === id; })[0] || null; },
-  getClass(id) { return Store.getClasses().filter(function (c) { return c.id === id; })[0] || null; },
-  getClassName(id) { const c = Store.getClass(id); return c ? c.name : ''; },
-
-  getDayRecords(date) {
-    const r = Store.getRecords();
-    return (r[date] || []).slice();
+  getClasses: function () { return read(KEYS.classes) || []; },
+  saveClasses: function (v) { write(KEYS.classes, v); },
+  getClassName: function (id) { var c = this.getClasses().filter(function (x) { return x.id === id; })[0]; return c ? c.name : ''; },
+  getNotes: function () { return read(KEYS.notes) || []; },
+  saveNotes: function (v) { write(KEYS.notes, v); },
+  getRecords: function () { return read(KEYS.records) || {}; },
+  saveRecords: function (v) { write(KEYS.records, v); },
+  getDay: function (date) { var r = this.getRecords(); return r[date] || {}; },
+  getDayClass: function (date, classId) { return this.getDay(date)[classId] || null; },
+  setDayClass: function (date, classId, rec) {
+    var r = this.getRecords();
+    if (!r[date]) r[date] = {};
+    r[date][classId] = rec;
+    this.saveRecords(r);
   },
-  getDayAreaRecord(date, areaId) {
-    return Store.getDayRecords(date).filter(function (r) { return r.areaId === areaId; })[0] || null;
+  delDayClass: function (date, classId) {
+    var r = this.getRecords();
+    if (r[date] && r[date][classId]) { delete r[date][classId]; if (!Object.keys(r[date]).length) delete r[date]; this.saveRecords(r); }
   },
-  addOrUpdateRecord(date, rec) {
-    const r = Store.getRecords();
-    if (!r[date]) r[date] = [];
-    const list = r[date];
-    const idx = list.map(function (x) { return x.areaId; }).indexOf(rec.areaId);
-    if (idx >= 0) list[idx] = rec; else list.push(rec);
-    Store.saveRecords(r);
-  },
-  delRecord(date, recId) {
-    const r = Store.getRecords();
-    if (!r[date]) return [];
-    const list = r[date];
-    const rec = list.filter(function (x) { return x.id === recId; })[0];
-    if (!rec) return [];
-    r[date] = list.filter(function (x) { return x.id !== recId; });
-    if (r[date].length === 0) delete r[date];
-    Store.saveRecords(r);
-    return rec.imgIds || [];
-  },
-  clearDay(date) {
-    const r = Store.getRecords();
-    const day = r[date] || [];
-    delete r[date];
-    Store.saveRecords(r);
-    const ids = [];
-    day.forEach(function (rec) { (rec.imgIds || []).forEach(function (id) { ids.push(id); }); });
-    return ids;
-  },
-
-  daySummary(date) {
-    const areas = Store.getAreas();
-    const recs = Store.getDayRecords(date);
-    const areaMap = {};
-    recs.forEach(function (rec) { areaMap[rec.areaId] = rec; });
-    let checked = 0, deduct = 0, problems = 0, classroomDeduct = 0, cleanupDeduct = 0;
-    areas.forEach(function (a) {
-      const rec = areaMap[a.id];
-      if (rec) {
-        checked++;
-        const d = rec.deduction || 0;
-        deduct += d;
-        problems += (rec.issueIds || []).length;
-        if (a.type === 'classroom') classroomDeduct += d; else cleanupDeduct += d;
-      }
+  clearDay: function (date) { var r = this.getRecords(); if (r[date]) { delete r[date]; this.saveRecords(r); } },
+  daySummary: function (date) {
+    var day = this.getDay(date);
+    var classes = this.getClasses();
+    var done = 0, sum = 0, top = 0;
+    classes.forEach(function (c) {
+      var rec = day[c.id];
+      if (rec) { done++; var t = calcTotal(rec.scores); sum += t; if (t > top) top = t; }
     });
-    return { checked: checked, deduct: deduct, problems: problems, classroomDeduct: classroomDeduct, cleanupDeduct: cleanupDeduct };
+    return { done: done, avg: done ? Math.round(sum / done * 10) / 10 : 0, top: top, total: classes.length };
   },
-
-  summarize(fromStr, toStr, typeFilter) {
-    const r = Store.getRecords();
-    const areaTypeMap = {};
-    Store.getAreas().forEach(function (a) { areaTypeMap[a.id] = a.type || 'cleanup'; });
-    const classDeduct = {};
-    const issueCount = {};
-    let daysSet = {};
-    let classroomDeduct = 0, cleanupDeduct = 0;
+  summarize: function (fromStr, toStr) {
+    var r = this.getRecords();
+    var classes = this.getClasses();
+    var result = {};
+    classes.forEach(function (c) { result[c.id] = { days: 0, sum: 0, roomSum: 0, cleanSum: 0, personalSum: 0, roomDays: 0, cleanDays: 0, personalDays: 0 }; });
+    var daysSet = {};
     Object.keys(r).forEach(function (date) {
       if (date < fromStr || date > toStr) return;
-      (r[date] || []).forEach(function (rec) {
-        const type = areaTypeMap[rec.areaId] || 'cleanup';
-        const d = rec.deduction || 0;
-        if (type === 'classroom') classroomDeduct += d; else cleanupDeduct += d;
-        if (typeFilter && typeFilter !== 'all' && type !== typeFilter) return;
-        if (rec.classId) classDeduct[rec.classId] = (classDeduct[rec.classId] || 0) + d;
-        (rec.issueIds || []).forEach(function (iid) { issueCount[iid] = (issueCount[iid] || 0) + 1; });
-        daysSet[date] = 1;
+      daysSet[date] = 1;
+      Object.keys(r[date]).forEach(function (cid) {
+        if (!result[cid]) return;
+        var rec = r[date][cid];
+        var t = calcTotal(rec.scores);
+        result[cid].days++;
+        result[cid].sum += t;
+        SCORE_GROUPS.forEach(function (g) {
+          var gs = 0, has = false;
+          SCORE_ITEMS.forEach(function (it) {
+            if (it.group === g.id && rec.scores[it.id] != null) { gs += Number(rec.scores[it.id]); has = true; }
+          });
+          if (has) {
+            if (g.id === 'classroom') { result[cid].roomSum += gs; result[cid].roomDays++; }
+            else if (g.id === 'cleanup') { result[cid].cleanSum += gs; result[cid].cleanDays++; }
+            else { result[cid].personalSum += gs; result[cid].personalDays++; }
+          }
+        });
       });
     });
-    const days = Object.keys(daysSet).length;
-    const totalDeduct = classroomDeduct + cleanupDeduct;
-    const rank = Store.getClasses().map(function (c) {
-      return { id: c.id, name: c.name, deduct: classDeduct[c.id] || 0 };
-    }).sort(function (a, b) { return a.deduct - b.deduct; });
-    const issueTop = Object.keys(issueCount).map(function (iid) {
-      const it = Store.getIssue(iid);
-      return { id: iid, name: it ? it.name : '已删除问题', count: issueCount[iid] };
-    }).sort(function (a, b) { return b.count - a.count; });
-    return { rank: rank, issueTop: issueTop, days: days, totalDeduct: totalDeduct, classroomDeduct: classroomDeduct, cleanupDeduct: cleanupDeduct, avg: days ? (totalDeduct / days).toFixed(1) : '0' };
+    var rank = classes.map(function (c) {
+      var d = result[c.id];
+      return {
+        id: c.id, name: c.name, days: d.days,
+        avg: d.days ? Math.round(d.sum / d.days * 10) / 10 : 0,
+        roomAvg: d.roomDays ? Math.round(d.roomSum / d.roomDays * 10) / 10 : 0,
+        cleanAvg: d.cleanDays ? Math.round(d.cleanSum / d.cleanDays * 10) / 10 : 0,
+        personalAvg: d.personalDays ? Math.round(d.personalSum / d.personalDays * 10) / 10 : 0
+      };
+    }).sort(function (a, b) { return b.avg - a.avg || a.name.localeCompare(b.name, 'zh'); });
+    return { rank: rank, days: Object.keys(daysSet).length, classes: rank.filter(function (x) { return x.days > 0; }).length, topAvg: rank.length && rank[0].days ? rank[0].avg : 0 };
   },
-
-  exportAll() {
-    return JSON.stringify({ classes: Store.getClasses(), areas: Store.getAreas(), issues: Store.getIssues(), records: Store.getRecords(), exportedAt: new Date().toISOString() });
+  exportAll: function () {
+    return JSON.stringify({ app: 'hygiene-check-v6', time: new Date().toISOString(), classes: this.getClasses(), notes: this.getNotes(), records: this.getRecords() });
   },
-  importAll(json) {
-    const data = JSON.parse(json);
-    if (!data || typeof data !== 'object') throw new Error('数据格式错误');
-    if (Array.isArray(data.classes)) Store.saveClasses(data.classes);
-    if (Array.isArray(data.areas)) Store.saveAreas(data.areas);
-    if (Array.isArray(data.issues)) Store.saveIssues(data.issues);
-    if (data.records && typeof data.records === 'object') Store.saveRecords(data.records);
+  importAll: function (text) {
+    var d = JSON.parse(text);
+    if (d && d.classes) this.saveClasses(d.classes);
+    if (d && d.notes) this.saveNotes(d.notes);
+    if (d && d.records) this.saveRecords(d.records);
   }
 };
-
 /* ================= 全局状态 ================= */
-const state = {
+var state = {
   view: 'check',
   checkDate: todayStr(),
-  recDate: todayStr(),
   ovDate: todayStr(),
-  statsRange: 'week',
-  statsType: 'all',
-  draft: { areaId: '', classId: '', issueIds: [], deduction: 0, note: '', imgs: [], oldImgIds: [] },
-  editingAreaId: null, editingClassId: null, editingIssueId: null,
-  areaDefaultClass: '',
-  areaType: 'classroom'
+  recDate: todayStr(),
+  statsFrom: weekStartStr(),
+  statsTo: todayStr(),
+  statsQuick: 'week',
+  statsTopN: 'all',
+  scoringClassId: null,
+  scoreDraft: null,
+  editingClassId: null,
+  editingIssueId: null
 };
 
-function $(id) { return document.getElementById(id); }
-
 /* ================= Toast ================= */
-let toastTimer = null;
+var toastTimer = null;
 function toast(msg) {
-  const t = $('toast');
-  t.textContent = msg;
-  t.hidden = false;
+  var el = $('toast');
+  el.textContent = msg;
+  el.hidden = false;
+  el.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(function () { t.hidden = true; }, 1800);
+  toastTimer = setTimeout(function () { el.hidden = true; el.classList.remove('show'); }, 1800);
 }
 
 /* ================= 视图切换 ================= */
 function switchView(view) {
   state.view = view;
   document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('active'); });
-  document.querySelectorAll('.tab').forEach(function (t) { t.classList.remove('active'); });
+  document.querySelectorAll('.tab').forEach(function (t) { t.classList.toggle('active', t.dataset.view === view); });
   $('view-' + view).classList.add('active');
-  document.querySelector('.tab[data-view="' + view + '"]').classList.add('active');
-  window.scrollTo(0, 0);
   if (view === 'check') renderCheck();
+  else if (view === 'overview') renderOverview();
   else if (view === 'records') renderRecords();
   else if (view === 'stats') renderStats();
-  else if (view === 'overview') renderOverview();
   else if (view === 'settings') renderSettings();
 }
 
 /* ================= 检查页 ================= */
+function sortedClasses() {
+  return Store.getClasses().slice().sort(function (a, b) { return classSortKey(a.name).localeCompare(classSortKey(b.name)); });
+}
 function renderCheck() {
   $('check-date-text').textContent = dateText(state.checkDate);
   $('check-week-text').textContent = weekdayCN(state.checkDate);
-  const areas = Store.getAreas();
-  const sum = Store.daySummary(state.checkDate);
-  $('sum-indoor').textContent = sum.classroomDeduct;
-  $('sum-outdoor').textContent = sum.cleanupDeduct;
-  $('sum-total').textContent = sum.deduct;
-  const listEl = $('check-area-list');
-  const emptyEl = $('check-empty');
-  if (areas.length === 0) {
-    listEl.innerHTML = '';
-    emptyEl.hidden = false;
-    return;
-  }
+  var classes = sortedClasses();
+  var day = Store.getDay(state.checkDate);
+  var sum = Store.daySummary(state.checkDate);
+  $('sum-done').textContent = sum.done + '/' + sum.total;
+  $('sum-avg').textContent = sum.avg;
+  $('sum-top').textContent = sum.top;
+  var listEl = $('check-class-list');
+  var emptyEl = $('check-empty');
+  if (!classes.length) { listEl.innerHTML = ''; emptyEl.hidden = false; return; }
   emptyEl.hidden = true;
-  function areaCard(a) {
-    const rec = Store.getDayAreaRecord(state.checkDate, a.id);
-    let statusHtml;
-    if (!rec) statusHtml = '<span class="area-state unchecked">未检查</span>';
-    else if ((rec.issueIds || []).length === 0) statusHtml = '<span class="area-state clean">干净</span>';
-    else statusHtml = '<span class="area-state dirty">' + rec.issueIds.length + '问题 -' + (rec.deduction || 0) + '</span>';
-    const cls = rec && rec.classId ? Store.getClassName(rec.classId) : (Store.getClassName(a.defaultClassId) || '');
-    return '<div class="area-card" data-areaid="' + a.id + '">' +
-      '<div class="area-card-main"><span class="area-card-name">' + esc(a.name) + '</span>' +
-      '<span class="area-card-class">值日：' + (esc(cls) || '未设置') + '</span></div>' +
+  var html = '';
+  classes.forEach(function (c) {
+    var rec = day[c.id];
+    var statusHtml;
+    if (!rec) statusHtml = '<span class="class-state unchecked">未评分</span>';
+    else statusHtml = '<span class="class-state scored">' + calcTotal(rec.scores) + ' 分</span>';
+    var note = rec && rec.note ? '<div class="class-note">📝 ' + esc(rec.note) + '</div>' : '';
+    html += '<div class="class-card" data-cid="' + c.id + '">' +
+      '<div class="class-card-main"><span class="class-name">' + esc(c.name) + '</span>' + note + '</div>' +
       statusHtml + '</div>';
-  }
-  const classroom = areas.filter(function (a) { return a.type === 'classroom'; });
-  const cleanup = areas.filter(function (a) { return a.type === 'cleanup'; });
-  let html = '';
-  if (classroom.length) html += '<div class="group-title-bar"><span class="group-dot classroom"></span>🏫 教室卫生 <span class="group-count">' + classroom.length + ' 个区域</span></div>' + classroom.map(areaCard).join('');
-  if (cleanup.length) html += '<div class="group-title-bar"><span class="group-dot cleanup"></span>🧹 清洁区 <span class="group-count">' + cleanup.length + ' 个区域</span></div>' + cleanup.map(areaCard).join('');
+  });
   listEl.innerHTML = html;
 }
-function openRecordSheet(areaId) {
-  const area = Store.getArea(areaId);
-  if (!area) return;
-  state.draft = { areaId: areaId, classId: area.defaultClassId || '', issueIds: [], deduction: 0, note: '', imgs: [], oldImgIds: [] };
-  const existing = Store.getDayAreaRecord(state.checkDate, areaId);
-  if (existing) {
-    state.draft.classId = existing.classId || '';
-    state.draft.issueIds = (existing.issueIds || []).slice();
-    state.draft.deduction = existing.deduction || 0;
-    state.draft.note = existing.note || '';
-    state.draft.oldImgIds = (existing.imgIds || []).slice();
-  }
-  $('record-sheet-title').textContent = area.name;
-  renderRecordIssues();
-  renderRecordClasses();
-  updateRecordDeduct();
-  $('record-note').value = state.draft.note;
-  $('record-imgs').innerHTML = '';
-  renderRecordImgs(state.draft.oldImgIds, true);
-  $('record-mask').hidden = false;
-  $('record-sheet').hidden = false;
+/* ================= 打分弹层 ================= */
+function openScoreSheet(classId) {
+  state.scoringClassId = classId;
+  var cls = Store.getClasses().filter(function (x) { return x.id === classId; })[0];
+  $('score-sheet-title').textContent = (cls ? cls.name : '') + ' 打分';
+  var existing = Store.getDayClass(state.checkDate, classId);
+  var scores = {};
+  SCORE_ITEMS.forEach(function (it) { scores[it.id] = existing && existing.scores[it.id] != null ? existing.scores[it.id] : it.max; });
+  state.scoreDraft = { scores: scores, note: existing ? (existing.note || '') : '', noteIds: existing && existing.noteIds ? existing.noteIds.slice() : [] };
+  SCORE_GROUPS.forEach(function (g) {
+    var el = $('score-group-' + g.id);
+    var html = '';
+    groupItems(g.id).forEach(function (it) {
+      html += '<div class="score-row"><span class="score-name">' + esc(it.name) + '</span>' +
+        '<input type="number" class="score-input" data-item="' + it.id + '" min="0" max="' + it.max + '" value="' + scores[it.id] + '">' +
+        '<span class="score-max">/ ' + it.max + '</span></div>';
+    });
+    el.innerHTML = html;
+  });
+  renderNoteChips();
+  $('score-note-input').value = state.scoreDraft.note;
+  $('score-total-val').textContent = calcTotal(scores);
+  $('score-mask').hidden = false;
+  $('score-sheet').hidden = false;
 }
-
-function renderRecordIssues() {
-  const issues = Store.getIssues();
-  const el = $('record-issues');
-  if (issues.length === 0) { el.innerHTML = '<span class="chip-empty">请在设置里添加卫生问题</span>'; return; }
-  let html = '';
-  issues.forEach(function (i) {
-    const sel = state.draft.issueIds.indexOf(i.id) >= 0;
-    html += '<button class="issue-chip' + (sel ? ' sel' : '') + '" data-issueid="' + i.id + '">' + esc(i.name) + '<span class="chip-deduct">-' + i.deduction + '</span></button>';
+function closeScoreSheet() {
+  $('score-mask').hidden = true;
+  $('score-sheet').hidden = true;
+  state.scoringClassId = null;
+  state.scoreDraft = null;
+}
+function onScoreInput() {
+  if (!state.scoreDraft) return;
+  var scores = state.scoreDraft.scores;
+  SCORE_ITEMS.forEach(function (it) {
+    var el = document.querySelector('.score-input[data-item="' + it.id + '"]');
+    if (el) {
+      var v = parseInt(el.value, 10);
+      if (isNaN(v) || v < 0) v = 0;
+      if (v > it.max) v = it.max;
+      scores[it.id] = v;
+    }
+  });
+  $('score-total-val').textContent = calcTotal(scores);
+}
+function renderNoteChips() {
+  var notes = Store.getNotes();
+  var draft = state.scoreDraft;
+  var el = $('score-note-chips');
+  var html = '';
+  notes.forEach(function (n) {
+    var on = draft.noteIds.indexOf(n.id) >= 0;
+    html += '<span class="note-chip' + (on ? ' sel' : '') + '" data-nid="' + n.id + '">' + esc(n.name) + '</span>';
   });
   el.innerHTML = html;
 }
-
-function renderRecordClasses() {
-  const classes = Store.getClasses();
-  const el = $('record-classes');
-  if (classes.length === 0) { el.innerHTML = '<span class="chip-empty">请先在设置里添加值日班级</span>'; return; }
-  let html = '';
-  classes.forEach(function (c) {
-    const sel = state.draft.classId === c.id;
-    html += '<button class="class-chip' + (sel ? ' sel' : '') + '" data-classid="' + c.id + '">' + esc(c.name) + '</button>';
-  });
-  el.innerHTML = html;
+function toggleNoteChip(nid) {
+  var draft = state.scoreDraft;
+  var idx = draft.noteIds.indexOf(nid);
+  if (idx >= 0) draft.noteIds.splice(idx, 1);
+  else draft.noteIds.push(nid);
+  var noteNames = draft.noteIds.map(function (id) {
+    var n = Store.getNotes().filter(function (x) { return x.id === id; })[0];
+    return n ? n.name : '';
+  }).filter(Boolean);
+  draft.note = noteNames.join('、');
+  $('score-note-input').value = draft.note;
+  renderNoteChips();
 }
-
-function updateRecordDeduct() { $('record-deduct-val').textContent = state.draft.deduction; }
-
-function toggleIssue(issueId) {
-  const idx = state.draft.issueIds.indexOf(issueId);
-  if (idx >= 0) state.draft.issueIds.splice(idx, 1); else state.draft.issueIds.push(issueId);
-  const issues = Store.getIssues();
-  state.draft.deduction = state.draft.issueIds.reduce(function (s, id) {
-    const it = issues.filter(function (i) { return i.id === id; })[0];
-    return s + (it ? it.deduction : 0);
-  }, 0);
-  renderRecordIssues();
-  updateRecordDeduct();
-}
-
-function setRecordClass(classId) { state.draft.classId = classId; renderRecordClasses(); }
-
-function setRecordClean() {
-  state.draft.issueIds = [];
-  state.draft.deduction = 0;
-  renderRecordIssues();
-  updateRecordDeduct();
-}
-
-function renderRecordImgs(imgIds, isExisting) {
-  const el = $('record-imgs');
-  let html = '';
-  if (isExisting) {
-    state.draft.oldImgIds = imgIds.slice();
-    state.draft.imgs = [];
-    imgIds.forEach(function (id) {
-      html += '<div class="img-thumb"><img src="" data-load="' + id + '"><button class="img-del" data-imgid="' + id + '">✕</button></div>';
-    });
-    el.innerHTML = html;
-    imgIds.forEach(function (id) {
-      ImgDB.get(id).then(function (dataUrl) {
-        if (!dataUrl) return;
-        state.draft.imgs.push({ id: id, dataUrl: dataUrl });
-        el.querySelectorAll('img[data-load="' + id + '"]').forEach(function (im) { im.src = dataUrl; });
-      });
-    });
-  } else {
-    state.draft.imgs.forEach(function (img) {
-      html += '<div class="img-thumb"><img src="' + img.dataUrl + '"><button class="img-del" data-imgid="' + img.id + '">✕</button></div>';
-    });
-    el.innerHTML = html;
-  }
-}
-
-function onPickImage() { $('record-img-input').click(); }
-
-function compressImage(file) {
-  return new Promise(function (resolve, reject) {
-    const maxDim = 1280, quality = 0.72;
-    let bitmapPromise;
-    try { bitmapPromise = createImageBitmap(file, { imageOrientation: 'from-image' }); }
-    catch (e) { bitmapPromise = null; }
-    const fallbackLoad = function () {
-      return new Promise(function (res, rej) {
-        const img = new Image();
-        img.onload = function () { res(img); };
-        img.onerror = rej;
-        img.src = URL.createObjectURL(file);
-      });
-    };
-    Promise.resolve(bitmapPromise || fallbackLoad()).then(function (bm) {
-      let w = bm.width, h = bm.height;
-      const scale = Math.min(1, maxDim / Math.max(w, h));
-      w = Math.round(w * scale); h = Math.round(h * scale);
-      const canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(bm, 0, 0, w, h);
-      if (bm.close) bm.close();
-      resolve(canvas.toDataURL('image/jpeg', quality));
-    }).catch(reject);
-  });
-}
-
-function onImgInputChange(e) {
-  const file = e.target.files[0];
-  e.target.value = '';
-  if (!file) return;
-  if (state.draft.imgs.length + state.draft.oldImgIds.length >= 3) { toast('最多上传 3 张照片'); return; }
-  compressImage(file).then(function (dataUrl) {
-    state.draft.imgs.push({ id: uid('img'), dataUrl: dataUrl });
-    renderRecordImgs();
-  }).catch(function () { toast('图片处理失败'); });
-}
-
-function onImgDel(imgId) {
-  state.draft.imgs = state.draft.imgs.filter(function (x) { return x.id !== imgId; });
-  state.draft.oldImgIds = state.draft.oldImgIds.filter(function (x) { return x !== imgId; });
-  renderRecordImgs();
-}
-
-function saveRecord() {
-  const d = state.draft;
-  if (!d.areaId) return;
-  if (!d.classId) { toast('请选择值日班级'); return; }
-  const rec = {
-    id: uid('rec'),
-    areaId: d.areaId,
-    classId: d.classId,
-    issueIds: d.issueIds.slice(),
-    deduction: d.deduction,
-    note: $('record-note').value.trim(),
-    imgIds: d.imgs.map(function (x) { return x.id; }),
+function onScoreSave() {
+  var draft = state.scoreDraft;
+  if (!draft) return;
+  onScoreInput();
+  var customNote = $('score-note-input').value.trim();
+  var rec = {
+    scores: draft.scores,
+    note: customNote,
+    noteIds: draft.noteIds,
     time: nowTime()
   };
-  const finalIds = rec.imgIds;
-  d.oldImgIds.forEach(function (id) { if (finalIds.indexOf(id) < 0) ImgDB.del(id); });
-  const putPromises = d.imgs.map(function (img) { return ImgDB.put(img.id, img.dataUrl); });
-  Promise.all(putPromises).then(function () {
-    Store.addOrUpdateRecord(state.checkDate, rec);
-    closeRecordSheet();
-    renderCheck();
-    toast('已保存');
-  }).catch(function () {
-    Store.addOrUpdateRecord(state.checkDate, rec);
-    closeRecordSheet();
-    renderCheck();
-    toast('已保存');
-  });
-}
-
-function closeRecordSheet() {
-  $('record-mask').hidden = true;
-  $('record-sheet').hidden = true;
-}
-
-function cleanAllToday() {
-  if (!confirm('将「' + dateText(state.checkDate) + '」当天所有地区标记为干净并清除记录？')) return;
-  const ids = Store.clearDay(state.checkDate);
-  ids.forEach(function (id) { ImgDB.del(id); });
+  Store.setDayClass(state.checkDate, state.scoringClassId, rec);
+  closeScoreSheet();
   renderCheck();
-  toast('已全部标记干净');
+  toast('已保存 ' + calcTotal(draft.scores) + ' 分');
 }
-
-function copySummary() {
-  const areas = Store.getAreas();
-  if (areas.length === 0) { toast('还没有地区'); return; }
-  const recs = Store.getDayRecords(state.checkDate);
-  const sum = Store.daySummary(state.checkDate);
-  let lines = [dateText(state.checkDate) + ' ' + weekdayCN(state.checkDate) + ' 卫生检查'];
-  areas.forEach(function (a) {
-    const rec = recs.filter(function (r) { return r.areaId === a.id; })[0];
-    if (!rec) return;
-    const cls = Store.getClassName(rec.classId) || '未记录班级';
-    let desc;
-    if ((rec.issueIds || []).length === 0) desc = '干净';
-    else {
-      const names = rec.issueIds.map(function (id) { const it = Store.getIssue(id); return it ? it.name : ''; }).filter(Boolean);
-      desc = names.join('、') + ' (-' + (rec.deduction || 0) + ')';
-    }
-    lines.push(a.name + '（' + cls + '）：' + desc);
-  });
-  lines.push('共检查 ' + sum.checked + ' 个地区，扣 ' + sum.deduct + ' 分');
-  copyText(lines.join('\n'));
-}
-
-function copyText(text) {
-  function done() { toast('已复制到剪贴板'); }
-  function fallback() {
-    const ta = document.createElement('textarea');
-    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta); ta.select();
-    try { document.execCommand('copy'); done(); } catch (e) { toast('复制失败'); }
-    document.body.removeChild(ta);
-  }
-  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(fallback);
-  else fallback();
-}
-/* ================= 扣分总览 ================= */
+/* ================= 总览页 ================= */
 function renderOverview() {
   $('ov-date-text').textContent = dateText(state.ovDate);
   $('ov-week-text').textContent = weekdayCN(state.ovDate);
-  const recs = Store.getDayRecords(state.ovDate);
-  const areas = Store.getAreas();
-  const areaMap = {};
-  areas.forEach(function (a) { areaMap[a.id] = a; });
-  const problemRecs = recs.filter(function (r) { return (r.issueIds || []).length > 0; });
-  const el = $('ov-content');
-  if (problemRecs.length === 0) {
-    el.innerHTML = '<div class="ov-clean"><div class="ov-clean-emoji">🎉</div><p>当天无扣分</p><p class="ov-clean-sub">所有区域全部合格</p></div>';
+  var classes = sortedClasses();
+  var day = Store.getDay(state.ovDate);
+  var el = $('ov-content');
+  var scored = classes.filter(function (c) { return day[c.id]; }).map(function (c) {
+    return { c: c, rec: day[c.id], total: calcTotal(day[c.id].scores) };
+  }).sort(function (a, b) { return b.total - a.total; });
+  if (!scored.length) {
+    el.innerHTML = '<div class="ov-clean"><div class="ov-clean-emoji">🎉</div><p>当天暂无评分</p><p class="ov-clean-sub">所有班级尚未打分</p></div>';
     return;
   }
-  const classroomRecs = problemRecs.filter(function (r) { return (areaMap[r.areaId] || {}).type === 'classroom'; });
-  const cleanupRecs = problemRecs.filter(function (r) { return (areaMap[r.areaId] || {}).type !== 'classroom'; });
-  let clsDeduct = 0, clnDeduct = 0;
-  function recBlock(rec) {
-    const area = areaMap[rec.areaId];
-    const areaName = area ? area.name : '已删除区域';
-    const cls = Store.getClassName(rec.classId) || '未记录';
-    const issues = (rec.issueIds || []).map(function (id) { const it = Store.getIssue(id); return it ? it.name : '其他问题'; });
-    const d = rec.deduction || 0;
-    return '<div class="ov-row">' +
-      '<div class="ov-head"><span class="ov-area">' + esc(areaName) + '</span><span class="ov-class">' + esc(cls) + '</span><span class="ov-deduct">-' + d + '</span></div>' +
-      '<div class="ov-issues">' + issues.map(function (i) { return '<span class="ov-issue">' + esc(i) + '</span>'; }).join('') + '</div>' +
-      '</div>';
-  }
-  let html = '';
-  if (classroomRecs.length) {
-    html += '<div class="ov-group-title">🏫 教室卫生</div>';
-    classroomRecs.forEach(function (rec) { html += recBlock(rec); clsDeduct += (rec.deduction || 0); });
-  }
-  if (cleanupRecs.length) {
-    html += '<div class="ov-group-title">🧹 清洁区</div>';
-    cleanupRecs.forEach(function (rec) { html += recBlock(rec); clnDeduct += (rec.deduction || 0); });
-  }
-  const total = clsDeduct + clnDeduct;
-  html += '<div class="ov-total">共 <b>' + problemRecs.length + '</b> 个区域扣分，合计 <b>' + total + '</b> 分<br><span class="ov-total-sub">（教室 ' + clsDeduct + ' 分 / 清洁区 ' + clnDeduct + ' 分）</span></div>';
+  var html = '';
+  var medals = ['🥇', '🥈', '🥉'];
+  scored.forEach(function (s, i) {
+    var rankTxt = i < 3 ? medals[i] : (i + 1) + '';
+    var note = s.rec.note ? '<div class="ov-issues"><span class="ov-issue">📝 ' + esc(s.rec.note) + '</span></div>' : '';
+    html += '<div class="ov-row"><div class="ov-head"><span class="ov-rank">' + rankTxt + '</span>' +
+      '<span class="ov-area">' + esc(s.c.name) + '</span>' +
+      '<span class="ov-deduct">' + s.total + ' 分</span></div>' + note + '</div>';
+  });
+  var sum = 0;
+  scored.forEach(function (s) { sum += s.total; });
+  var avg = Math.round(sum / scored.length * 10) / 10;
+  html += '<div class="ov-total">共 <b>' + scored.length + '</b> 个班级参评，平均 <b>' + avg + '</b> 分<br><span class="ov-total-sub">每班满分 100 分</span></div>';
   el.innerHTML = html;
 }
 
@@ -651,465 +339,305 @@ function renderOverview() {
 function renderRecords() {
   $('rec-date-text').textContent = dateText(state.recDate);
   $('rec-week-text').textContent = weekdayCN(state.recDate);
-  const recs = Store.getDayRecords(state.recDate);
-  const listEl = $('rec-list');
-  const emptyEl = $('rec-empty');
-  emptyEl.hidden = recs.length > 0;
-  if (recs.length === 0) { listEl.innerHTML = ''; return; }
-  let html = '';
-  recs.forEach(function (rec) {
-    const area = Store.getArea(rec.areaId);
-    const cls = Store.getClassName(rec.classId) || '未记录';
-    let issuesHtml = '';
-    if ((rec.issueIds || []).length === 0) issuesHtml = '<span class="rec-tag clean">干净</span>';
-    else {
-      rec.issueIds.forEach(function (id) {
-        const it = Store.getIssue(id);
-        issuesHtml += '<span class="rec-tag">' + esc(it ? it.name : '已删除问题') + '</span>';
-      });
-    }
-    const imgsHtml = (rec.imgIds || []).map(function (id) {
-      return '<div class="rec-img"><img src="" data-load="' + id + '"></div>';
-    }).join('');
-    html += '<div class="rec-card">' +
-      '<div class="rec-card-head"><span class="rec-area-name">' + esc(area ? area.name : '已删除地区') + '</span>' +
-      '<span class="rec-class">' + esc(cls) + '</span>' +
-      '<span class="rec-deduct">-' + (rec.deduction || 0) + '</span>' +
-      '<button class="rec-del" data-recid="' + rec.id + '">✕</button></div>' +
-      '<div class="rec-tags">' + issuesHtml + '</div>' +
-      (rec.note ? '<div class="rec-note">' + esc(rec.note) + '</div>' : '') +
-      '<div class="rec-imgs">' + imgsHtml + '</div>' +
-      '<div class="rec-time">' + esc(rec.time || '') + '</div>' +
-      '</div>';
-  });
-  listEl.innerHTML = html;
-  recs.forEach(function (rec) {
-    (rec.imgIds || []).forEach(function (id) {
-      ImgDB.get(id).then(function (dataUrl) {
-        if (!dataUrl) return;
-        listEl.querySelectorAll('img[data-load="' + id + '"]').forEach(function (im) { im.src = dataUrl; });
-      });
+  var day = Store.getDay(state.recDate);
+  var classes = sortedClasses();
+  var el = $('rec-list');
+  var emptyEl = $('rec-empty');
+  var scored = classes.filter(function (c) { return day[c.id]; });
+  if (!scored.length) { el.innerHTML = ''; emptyEl.hidden = false; return; }
+  emptyEl.hidden = true;
+  var html = '';
+  scored.forEach(function (c) {
+    var rec = day[c.id];
+    var total = calcTotal(rec.scores);
+    var itemsHtml = '';
+    SCORE_GROUPS.forEach(function (g) {
+      var names = groupItems(g.id).map(function (it) {
+        return it.name + ' ' + (rec.scores[it.id] != null ? rec.scores[it.id] : '-');
+      }).join(' · ');
+      itemsHtml += '<div class="rec-group"><span class="rec-group-name">' + g.name + '</span><span class="rec-group-vals">' + esc(names) + '</span></div>';
     });
-  });
-}
-
-function delRecordAndImgs(recId) {
-  const ids = Store.delRecord(state.recDate, recId);
-  ids.forEach(function (id) { ImgDB.del(id); });
-  renderRecords();
-  toast('已删除');
-}
-
-function clearDayAndImgs() {
-  if (!confirm('删除「' + dateText(state.recDate) + '」当天全部记录（含照片）？')) return;
-  const ids = Store.clearDay(state.recDate);
-  ids.forEach(function (id) { ImgDB.del(id); });
-  renderRecords();
-  toast('已删除当天记录');
-}
-
-/* ================= 统计页 ================= */
-function statsRangeDates() {
-  const t = todayStr();
-  const today = parseDate(t);
-  if (state.statsRange === 'all') return { from: '0000-00-00', to: t };
-  if (state.statsRange === 'week') {
-    const dow = today.getDay() === 0 ? 6 : today.getDay() - 1;
-    return { from: addDays(t, -dow), to: t };
-  }
-  const from = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-01';
-  return { from: from, to: t };
-}
-
-function renderStats() {
-  document.querySelectorAll('#stats-range .seg').forEach(function (b) { b.classList.toggle('active', b.dataset.range === state.statsRange); });
-  document.querySelectorAll('#stats-type .seg').forEach(function (b) { b.classList.toggle('active', b.dataset.type === state.statsType); });
-  const range = statsRangeDates();
-  const s = Store.summarize(range.from, range.to, state.statsType);
-  $('stat-indoor').textContent = s.classroomDeduct;
-  $('stat-outdoor').textContent = s.cleanupDeduct;
-  $('stat-total-deduct').textContent = s.totalDeduct;
-
-  const rankEl = $('stats-rank-list');
-  const rankEmpty = $('stats-rank-empty');
-  const hasClass = s.rank.length > 0;
-  const hasDeduct = s.rank.some(function (c) { return c.deduct > 0; });
-  if (!hasClass) { rankEl.innerHTML = ''; rankEmpty.hidden = false; document.querySelector('#stats-rank-empty p').textContent = '还没有班级'; }
-  else if (!hasDeduct) { rankEl.innerHTML = ''; rankEmpty.hidden = false; document.querySelector('#stats-rank-empty p').textContent = '该时段内暂无扣分'; }
-  else {
-    rankEmpty.hidden = true;
-    const maxDeduct = Math.max.apply(null, s.rank.map(function (c) { return c.deduct; })) || 1;
-    let html = '';
-    s.rank.forEach(function (c, i) {
-      const pct = Math.round(c.deduct / maxDeduct * 100);
-      const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : (i === 2 ? '🥉' : '<span class="rank-num">' + (i + 1) + '</span>'));
-      html += '<div class="rank-row"><span class="rank-medal">' + medal + '</span>' +
-        '<span class="rank-name">' + esc(c.name) + '</span>' +
-        '<span class="rank-bar-wrap"><span class="rank-bar" style="width:' + pct + '%"></span></span>' +
-        '<span class="rank-deduct">' + (c.deduct > 0 ? '-' + c.deduct : '0') + '</span></div>';
-    });
-    rankEl.innerHTML = html;
-  }
-
-  const issueEl = $('stats-issue-list');
-  const issueEmpty = $('stats-issue-empty');
-  if (s.issueTop.length === 0) { issueEl.innerHTML = ''; issueEmpty.hidden = false; }
-  else {
-    issueEmpty.hidden = true;
-    const maxCount = s.issueTop[0].count;
-    let html = '';
-    s.issueTop.forEach(function (it, i) {
-      const pct = Math.round(it.count / maxCount * 100);
-      html += '<div class="issue-row"><span class="issue-rank">' + (i + 1) + '</span>' +
-        '<span class="issue-name">' + esc(it.name) + '</span>' +
-        '<span class="issue-bar-wrap"><span class="issue-bar" style="width:' + pct + '%"></span></span>' +
-        '<span class="issue-count">' + it.count + '次</span></div>';
-    });
-    issueEl.innerHTML = html;
-  }
-}
-/* ================= 设置页 ================= */
-function renderSettings() { renderAreaManage(); renderClassManage(); renderIssueManage(); }
-
-function renderAreaManage() {
-  const areas = Store.getAreas();
-  const el = $('area-manage-list');
-  let html = '';
-  areas.forEach(function (a) {
-    const cls = Store.getClassName(a.defaultClassId);
-    const typeLabel = a.type === 'classroom' ? '<span class="type-tag classroom">🏫教室</span>' : '<span class="type-tag cleanup">🧹清洁区</span>';
-    html += '<div class="manage-row" data-id="' + a.id + '">' +
-      '<div class="manage-main"><span class="manage-name">' + esc(a.name) + '</span>' +
-      '<span class="manage-sub">' + typeLabel + ' ' + (cls ? '值日：' + esc(cls) : '未设值日班级') + '</span></div>' +
-      '<span class="manage-edit">编辑 ›</span></div>';
-  });
-  el.innerHTML = html || '<div class="manage-empty">暂无地区</div>';
-}
-
-function renderClassManage() {
-  const classes = Store.getClasses();
-  const el = $('class-manage-list');
-  let html = '';
-  classes.forEach(function (c) {
-    html += '<div class="manage-row" data-id="' + c.id + '">' +
-      '<div class="manage-main"><span class="manage-name">' + esc(c.name) + '</span></div>' +
-      '<span class="manage-edit">编辑 ›</span></div>';
-  });
-  el.innerHTML = html || '<div class="manage-empty">暂无班级</div>';
-}
-
-function renderIssueManage() {
-  const issues = Store.getIssues();
-  const el = $('issue-manage-list');
-  let html = '';
-  issues.forEach(function (i) {
-    html += '<div class="manage-row" data-id="' + i.id + '">' +
-      '<div class="manage-main"><span class="manage-name">' + esc(i.name) + '</span>' +
-      '<span class="manage-sub">扣 ' + i.deduction + ' 分</span></div>' +
-      '<span class="manage-edit">编辑 ›</span></div>';
-  });
-  el.innerHTML = html || '<div class="manage-empty">暂无问题</div>';
-}
-
-/* ---- 地区编辑 ---- */
-function openAreaSheet(editingId) {
-  state.editingAreaId = editingId;
-  state.areaDefaultClass = '';
-  state.areaType = 'classroom';
-  const isEdit = !!editingId;
-  $('area-sheet-title').textContent = isEdit ? '编辑地区' : '添加地区';
-  $('area-delete').hidden = !isEdit;
-  $('area-name').value = '';
-  if (isEdit) {
-    const a = Store.getArea(editingId);
-    if (a) { $('area-name').value = a.name; state.areaDefaultClass = a.defaultClassId || ''; state.areaType = a.type || 'classroom'; }
-  }
-  renderAreaType();
-  renderAreaDefaultClass();
-  $('area-mask').hidden = false;
-  $('area-sheet').hidden = false;
-}
-
-function renderAreaType() {
-  document.querySelectorAll('#area-type .seg').forEach(function (b) { b.classList.toggle('active', b.dataset.type === state.areaType); });
-}
-
-function renderAreaDefaultClass() {
-  const classes = Store.getClasses();
-  const el = $('area-default-class');
-  if (classes.length === 0) { el.innerHTML = '<span class="chip-empty">暂无班级，可先保存地区</span>'; return; }
-  let html = '<button class="class-chip' + (state.areaDefaultClass === '' ? ' sel' : '') + '" data-classid="">不设默认</button>';
-  classes.forEach(function (c) {
-    html += '<button class="class-chip' + (state.areaDefaultClass === c.id ? ' sel' : '') + '" data-classid="' + c.id + '">' + esc(c.name) + '</button>';
+    var note = rec.note ? '<div class="rec-note">📝 ' + esc(rec.note) + '</div>' : '';
+    html += '<div class="rec-card" data-cid="' + c.id + '">' +
+      '<div class="rec-head"><span class="rec-class">' + esc(c.name) + '</span>' +
+      '<span class="rec-total">' + total + ' 分</span>' +
+      '<button class="rec-del" data-cid="' + c.id + '" aria-label="删除">✕</button></div>' +
+      itemsHtml + note +
+      '<div class="rec-time">' + esc(rec.time || '') + '</div></div>';
   });
   el.innerHTML = html;
 }
-
-function onAreaSave() {
-  const name = $('area-name').value.trim();
-  if (!name) { toast('请输入地区名称'); return; }
-  const areas = Store.getAreas();
-  if (state.editingAreaId) areas.forEach(function (a) { if (a.id === state.editingAreaId) { a.name = name; a.defaultClassId = state.areaDefaultClass; a.type = state.areaType; } });
-  else areas.push({ id: uid('a'), name: name, defaultClassId: state.areaDefaultClass, type: state.areaType });
-  Store.saveAreas(areas);
-  closeAreaSheet();
-  renderSettings();
-  toast('已保存');
+/* ================= 统计页 ================= */
+function renderStats() {
+  document.querySelectorAll('#stats-quick .seg').forEach(function (b) { b.classList.toggle('active', b.dataset.q === state.statsQuick); });
+  document.querySelectorAll('#stats-topn .seg').forEach(function (b) { b.classList.toggle('active', b.dataset.n === state.statsTopN); });
+  $('stats-from').value = state.statsFrom === '0000-00-00' ? '' : state.statsFrom;
+  $('stats-to').value = state.statsTo === '9999-12-31' ? '' : state.statsTo;
+  var s = Store.summarize(state.statsFrom, state.statsTo);
+  $('stat-days').textContent = s.days;
+  $('stat-classes').textContent = s.classes;
+  $('stat-top-avg').textContent = s.topAvg;
+  var listEl = $('stats-rank-list');
+  var emptyEl = $('stats-empty');
+  var ranked = s.rank.filter(function (x) { return x.days > 0; });
+  if (!ranked.length) { listEl.innerHTML = ''; emptyEl.hidden = false; return; }
+  emptyEl.hidden = true;
+  var topN = state.statsTopN === '10' ? 10 : ranked.length;
+  var html = '';
+  var medals = ['🥇', '🥈', '🥉'];
+  for (var i = 0; i < Math.min(topN, ranked.length); i++) {
+    var r = ranked[i];
+    var rankTxt = i < 3 ? medals[i] : (i + 1) + '';
+    html += '<div class="rank-row' + (i < 3 ? ' top' : '') + '">' +
+      '<span class="rank-no">' + rankTxt + '</span>' +
+      '<div class="rank-main"><span class="rank-name">' + esc(r.name) + '</span>' +
+      '<span class="rank-sub">教室 ' + r.roomAvg + ' · 清洁区 ' + r.cleanAvg + ' · 个人 ' + r.personalAvg + '（' + r.days + '天）</span></div>' +
+      '<span class="rank-deduct">' + r.avg + '</span></div>';
+  }
+  listEl.innerHTML = html;
 }
-
-function onAreaDelete() {
-  if (!state.editingAreaId) return;
-  if (!confirm('删除该地区？其历史记录仍保留。')) return;
-  Store.saveAreas(Store.getAreas().filter(function (a) { return a.id !== state.editingAreaId; }));
-  closeAreaSheet();
-  renderSettings();
-  toast('已删除');
+/* ================= 设置页 ================= */
+function renderSettings() {
+  renderClassManage();
+  renderIssueManage();
 }
-
-function closeAreaSheet() {
-  $('area-mask').hidden = true;
-  $('area-sheet').hidden = true;
-  state.editingAreaId = null;
+function renderClassManage() {
+  var classes = sortedClasses();
+  var el = $('class-manage-list');
+  var html = '';
+  classes.forEach(function (c) {
+    html += '<div class="manage-row" data-id="' + c.id + '"><div class="manage-main"><span class="manage-name">' + esc(c.name) + '</span></div><span class="manage-edit">编辑 ›</span></div>';
+  });
+  el.innerHTML = html || '<div class="manage-empty">暂无班级</div>';
 }
-
-/* ---- 班级编辑 ---- */
 function openClassSheet(editingId) {
   state.editingClassId = editingId;
-  const isEdit = !!editingId;
+  var isEdit = !!editingId;
   $('class-sheet-title').textContent = isEdit ? '编辑班级' : '添加班级';
   $('class-delete').hidden = !isEdit;
   $('class-name').value = '';
-  if (isEdit) { const c = Store.getClass(editingId); if (c) $('class-name').value = c.name; }
+  if (isEdit) {
+    var c = Store.getClasses().filter(function (x) { return x.id === editingId; })[0];
+    if (c) $('class-name').value = c.name;
+  }
   $('class-mask').hidden = false;
   $('class-sheet').hidden = false;
 }
-
+function closeClassSheet() { $('class-mask').hidden = true; $('class-sheet').hidden = true; state.editingClassId = null; }
 function onClassSave() {
-  const name = $('class-name').value.trim();
+  var name = $('class-name').value.trim();
   if (!name) { toast('请输入班级名称'); return; }
-  const classes = Store.getClasses();
+  var classes = Store.getClasses();
   if (state.editingClassId) classes.forEach(function (c) { if (c.id === state.editingClassId) c.name = name; });
   else classes.push({ id: uid('c'), name: name });
   Store.saveClasses(classes);
   closeClassSheet();
-  renderSettings();
+  renderSettings(); renderCheck();
   toast('已保存');
 }
-
 function onClassDelete() {
   if (!state.editingClassId) return;
-  if (!confirm('删除该班级？历史记录仍保留（显示为未记录班级）。')) return;
-  Store.saveClasses(Store.getClasses().filter(function (c) { return c.id !== state.editingClassId; }));
-  const areas = Store.getAreas();
-  areas.forEach(function (a) { if (a.defaultClassId === state.editingClassId) a.defaultClassId = ''; });
-  Store.saveAreas(areas);
+  var classes = Store.getClasses().filter(function (c) { return c.id !== state.editingClassId; });
+  Store.saveClasses(classes);
   closeClassSheet();
-  renderSettings();
+  renderSettings(); renderCheck();
   toast('已删除');
 }
-
-function closeClassSheet() {
-  $('class-mask').hidden = true;
-  $('class-sheet').hidden = true;
-  state.editingClassId = null;
+function renderIssueManage() {
+  var notes = Store.getNotes();
+  var el = $('issue-manage-list');
+  var html = '';
+  notes.forEach(function (n) {
+    html += '<div class="manage-row" data-id="' + n.id + '"><div class="manage-main"><span class="manage-name">' + esc(n.name) + '</span></div><span class="manage-edit">编辑 ›</span></div>';
+  });
+  el.innerHTML = html || '<div class="manage-empty">暂无问题</div>';
 }
-
-/* ---- 问题编辑 ---- */
 function openIssueSheet(editingId) {
   state.editingIssueId = editingId;
-  const isEdit = !!editingId;
+  var isEdit = !!editingId;
   $('issue-sheet-title').textContent = isEdit ? '编辑问题' : '添加问题';
   $('issue-delete').hidden = !isEdit;
   $('issue-name').value = '';
-  setIssueDeduct(1);
   if (isEdit) {
-    const i = Store.getIssue(editingId);
-    if (i) { $('issue-name').value = i.name; setIssueDeduct(i.deduction); }
+    var n = Store.getNotes().filter(function (x) { return x.id === editingId; })[0];
+    if (n) $('issue-name').value = n.name;
   }
   $('issue-mask').hidden = false;
   $('issue-sheet').hidden = false;
 }
-
-function setIssueDeduct(n) { $('issue-deduct-val').textContent = n; }
-
+function closeIssueSheet() { $('issue-mask').hidden = true; $('issue-sheet').hidden = true; state.editingIssueId = null; }
 function onIssueSave() {
-  const name = $('issue-name').value.trim();
+  var name = $('issue-name').value.trim();
   if (!name) { toast('请输入问题描述'); return; }
-  const deduction = parseInt($('issue-deduct-val').textContent, 10) || 0;
-  const issues = Store.getIssues();
-  if (state.editingIssueId) issues.forEach(function (i) { if (i.id === state.editingIssueId) { i.name = name; i.deduction = deduction; } });
-  else issues.push({ id: uid('i'), name: name, deduction: deduction });
-  Store.saveIssues(issues);
+  var notes = Store.getNotes();
+  if (state.editingIssueId) notes.forEach(function (n) { if (n.id === state.editingIssueId) n.name = name; });
+  else notes.push({ id: uid('n'), name: name });
+  Store.saveNotes(notes);
   closeIssueSheet();
   renderSettings();
   toast('已保存');
 }
-
 function onIssueDelete() {
   if (!state.editingIssueId) return;
-  if (!confirm('删除该问题？')) return;
-  Store.saveIssues(Store.getIssues().filter(function (i) { return i.id !== state.editingIssueId; }));
+  var notes = Store.getNotes().filter(function (n) { return n.id !== state.editingIssueId; });
+  Store.saveNotes(notes);
   closeIssueSheet();
   renderSettings();
   toast('已删除');
 }
 
-function closeIssueSheet() {
-  $('issue-mask').hidden = true;
-  $('issue-sheet').hidden = true;
-  state.editingIssueId = null;
-}
-/* ---- 数据 ---- */
+/* ================= 数据 ================= */
 function exportData() {
-  const blob = new Blob([Store.exportAll()], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = '卫生检查数据_' + todayStr() + '.json';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  var data = Store.exportAll();
+  var blob = new Blob([data], { type: 'application/json' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '卫生检查数据-' + todayStr() + '.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   toast('已导出');
 }
-
-function importData() { $('import-file').click(); }
-
+function copyData() {
+  var data = Store.exportAll();
+  function done() { toast('已复制，可在其他设备导入'); }
+  function fallback() {
+    var ta = document.createElement('textarea');
+    ta.value = data;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); done(); } catch (e) { toast('复制失败，请用导出'); }
+    ta.remove();
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(data).then(done).catch(fallback);
+  else fallback();
+}
+function importData(file) {
+  var reader = new FileReader();
+  reader.onload = function () {
+    try {
+      Store.importAll(reader.result);
+      renderSettings(); renderCheck(); renderStats();
+      toast('导入成功');
+    } catch (e) { toast('导入失败：格式不对'); }
+  };
+  reader.readAsText(file);
+}
 function clearAllData() {
-  if (!confirm('确定清空全部数据（地区、班级、问题、记录、照片）？此操作不可恢复，建议先导出备份。')) return;
-  Object.keys(KEYS).forEach(function (k) { localStorage.removeItem(KEYS[k]); });
-  ImgDB.clear().then(function () { }).catch(function () { });
+  if (!confirm('确定清空全部数据？此操作不可恢复！')) return;
+  localStorage.removeItem(KEYS.classes);
+  localStorage.removeItem(KEYS.notes);
+  localStorage.removeItem(KEYS.records);
   Store.seed();
-  renderSettings(); renderCheck(); renderRecords(); renderStats();
+  renderCheck(); renderOverview(); renderRecords(); renderStats(); renderSettings();
   toast('已清空');
-}
-
-/* ---- 图片大图预览 ---- */
-function showImgView(dataUrl) {
-  $('imgview-img').src = dataUrl;
-  $('imgview-mask').hidden = false;
-  $('imgview').hidden = false;
-}
-function closeImgView() {
-  $('imgview-mask').hidden = true;
-  $('imgview').hidden = true;
 }
 /* ================= 事件绑定 ================= */
 function bindEvents() {
   document.querySelectorAll('.tab').forEach(function (t) {
     t.addEventListener('click', function () { switchView(t.dataset.view); });
   });
-
   $('check-prev').addEventListener('click', function () { state.checkDate = addDays(state.checkDate, -1); renderCheck(); });
   $('check-next').addEventListener('click', function () { state.checkDate = addDays(state.checkDate, 1); renderCheck(); });
-  $('btn-clean-all').addEventListener('click', cleanAllToday);
-  $('btn-copy').addEventListener('click', copySummary);
-  $('empty-go-settings').addEventListener('click', function () { switchView('settings'); });
-  $('check-area-list').addEventListener('click', function (e) {
-    const card = e.target.closest('.area-card');
-    if (card) openRecordSheet(card.dataset.areaid);
-  });
-
-  $('record-mask').addEventListener('click', closeRecordSheet);
-  $('record-cancel').addEventListener('click', closeRecordSheet);
-  $('record-save').addEventListener('click', saveRecord);
-  $('record-clean').addEventListener('click', setRecordClean);
-  $('record-issues').addEventListener('click', function (e) {
-    const chip = e.target.closest('.issue-chip');
-    if (chip) toggleIssue(chip.dataset.issueid);
-  });
-  $('record-classes').addEventListener('click', function (e) {
-    const chip = e.target.closest('.class-chip');
-    if (chip) setRecordClass(chip.dataset.classid);
-  });
-  $('record-deduct-minus').addEventListener('click', function () { state.draft.deduction = Math.max(0, state.draft.deduction - 1); updateRecordDeduct(); });
-  $('record-deduct-plus').addEventListener('click', function () { state.draft.deduction += 1; updateRecordDeduct(); });
-  $('record-add-img').addEventListener('click', onPickImage);
-  $('record-img-input').addEventListener('change', onImgInputChange);
-  $('record-imgs').addEventListener('click', function (e) {
-    const del = e.target.closest('.img-del');
-    if (del) { onImgDel(del.dataset.imgid); return; }
-    const img = e.target.closest('img');
-    if (img && img.src) showImgView(img.src);
-  });
-
   $('ov-prev').addEventListener('click', function () { state.ovDate = addDays(state.ovDate, -1); renderOverview(); });
   $('ov-next').addEventListener('click', function () { state.ovDate = addDays(state.ovDate, 1); renderOverview(); });
   $('rec-prev').addEventListener('click', function () { state.recDate = addDays(state.recDate, -1); renderRecords(); });
   $('rec-next').addEventListener('click', function () { state.recDate = addDays(state.recDate, 1); renderRecords(); });
-  $('btn-clear-day').addEventListener('click', clearDayAndImgs);
+
+  $('check-class-list').addEventListener('click', function (e) {
+    var card = e.target.closest('.class-card');
+    if (card) openScoreSheet(card.dataset.cid);
+  });
+  $('empty-go-settings').addEventListener('click', function () { switchView('settings'); });
+
+  SCORE_GROUPS.forEach(function (g) {
+    $('score-group-' + g.id).addEventListener('input', onScoreInput);
+  });
+  $('score-note-chips').addEventListener('click', function (e) {
+    var chip = e.target.closest('.note-chip');
+    if (chip && state.scoreDraft) toggleNoteChip(chip.dataset.nid);
+  });
+  $('score-note-input').addEventListener('input', function () {
+    if (!state.scoreDraft) return;
+    state.scoreDraft.note = $('score-note-input').value;
+    state.scoreDraft.noteIds = [];
+    renderNoteChips();
+  });
+  $('score-cancel').addEventListener('click', closeScoreSheet);
+  $('score-save').addEventListener('click', onScoreSave);
+  $('score-mask').addEventListener('click', closeScoreSheet);
+
   $('rec-list').addEventListener('click', function (e) {
-    const del = e.target.closest('.rec-del');
-    if (del) { if (confirm('删除该条记录（含照片）？')) delRecordAndImgs(del.dataset.recid); return; }
-    const img = e.target.closest('.rec-img img');
-    if (img && img.src) showImgView(img.src);
+    var del = e.target.closest('.rec-del');
+    if (del) {
+      if (confirm('删除该班当天评分？')) {
+        Store.delDayClass(state.recDate, del.dataset.cid);
+        renderRecords();
+        toast('已删除');
+      }
+    }
+  });
+  $('btn-clear-day').addEventListener('click', function () {
+    var day = Store.getDay(state.recDate);
+    if (!Object.keys(day).length) { toast('当天无数据'); return; }
+    if (confirm('删除当天全部评分？')) { Store.clearDay(state.recDate); renderRecords(); toast('已删除'); }
   });
 
-  document.querySelectorAll('#stats-range .seg').forEach(function (b) {
-    b.addEventListener('click', function () { state.statsRange = b.dataset.range; renderStats(); });
+  $('stats-from').addEventListener('change', function () {
+    var v = $('stats-from').value;
+    if (v) { state.statsFrom = v; state.statsQuick = 'custom'; renderStats(); }
   });
-  document.querySelectorAll('#stats-type .seg').forEach(function (b) {
-    b.addEventListener('click', function () { state.statsType = b.dataset.type; renderStats(); });
+  $('stats-to').addEventListener('change', function () {
+    var v = $('stats-to').value;
+    if (v) { state.statsTo = v; state.statsQuick = 'custom'; renderStats(); }
+  });
+  document.querySelectorAll('#stats-quick .seg').forEach(function (b) {
+    b.addEventListener('click', function () {
+      state.statsQuick = b.dataset.q;
+      if (b.dataset.q === 'week') { state.statsFrom = weekStartStr(); state.statsTo = todayStr(); }
+      else if (b.dataset.q === 'month') { state.statsFrom = monthStartStr(); state.statsTo = todayStr(); }
+      else if (b.dataset.q === 'all') { state.statsFrom = '0000-00-00'; state.statsTo = '9999-12-31'; }
+      renderStats();
+    });
+  });
+  document.querySelectorAll('#stats-topn .seg').forEach(function (b) {
+    b.addEventListener('click', function () { state.statsTopN = b.dataset.n; renderStats(); });
   });
 
-  $('btn-add-area').addEventListener('click', function () { openAreaSheet(null); });
-  $('area-manage-list').addEventListener('click', function (e) { const r = e.target.closest('.manage-row'); if (r) openAreaSheet(r.dataset.id); });
+  $('class-manage-list').addEventListener('click', function (e) {
+    var row = e.target.closest('.manage-row');
+    if (row) openClassSheet(row.dataset.id);
+  });
   $('btn-add-class').addEventListener('click', function () { openClassSheet(null); });
-  $('class-manage-list').addEventListener('click', function (e) { const r = e.target.closest('.manage-row'); if (r) openClassSheet(r.dataset.id); });
-  $('btn-add-issue').addEventListener('click', function () { openIssueSheet(null); });
-  $('issue-manage-list').addEventListener('click', function (e) { const r = e.target.closest('.manage-row'); if (r) openIssueSheet(r.dataset.id); });
-
-  $('area-mask').addEventListener('click', closeAreaSheet);
-  $('area-cancel').addEventListener('click', closeAreaSheet);
-  $('area-save').addEventListener('click', onAreaSave);
-  $('area-delete').addEventListener('click', onAreaDelete);
-  $('area-type').addEventListener('click', function (e) {
-    const seg = e.target.closest('.seg');
-    if (seg) { state.areaType = seg.dataset.type; renderAreaType(); }
-  });
-  $('area-default-class').addEventListener('click', function (e) {
-    const chip = e.target.closest('.class-chip');
-    if (chip) { state.areaDefaultClass = chip.dataset.classid; renderAreaDefaultClass(); }
-  });
-
-  $('class-mask').addEventListener('click', closeClassSheet);
   $('class-cancel').addEventListener('click', closeClassSheet);
   $('class-save').addEventListener('click', onClassSave);
   $('class-delete').addEventListener('click', onClassDelete);
+  $('class-mask').addEventListener('click', closeClassSheet);
 
-  $('issue-mask').addEventListener('click', closeIssueSheet);
+  $('issue-manage-list').addEventListener('click', function (e) {
+    var row = e.target.closest('.manage-row');
+    if (row) openIssueSheet(row.dataset.id);
+  });
+  $('btn-add-issue').addEventListener('click', function () { openIssueSheet(null); });
   $('issue-cancel').addEventListener('click', closeIssueSheet);
   $('issue-save').addEventListener('click', onIssueSave);
   $('issue-delete').addEventListener('click', onIssueDelete);
-  $('issue-deduct-minus').addEventListener('click', function () { setIssueDeduct(Math.max(0, (parseInt($('issue-deduct-val').textContent, 10) || 0) - 1)); });
-  $('issue-deduct-plus').addEventListener('click', function () { setIssueDeduct((parseInt($('issue-deduct-val').textContent, 10) || 0) + 1); });
+  $('issue-mask').addEventListener('click', closeIssueSheet);
 
   $('btn-export').addEventListener('click', exportData);
-  $('btn-copy').addEventListener('click', function () { copyText(Store.exportAll()); });
-  $('btn-import').addEventListener('click', importData);
-  $('btn-clear-all').addEventListener('click', clearAllData);
+  $('btn-copy').addEventListener('click', copyData);
+  $('btn-import').addEventListener('click', function () { $('import-file').click(); });
   $('import-file').addEventListener('change', function (e) {
-    const file = e.target.files[0];
+    if (e.target.files[0]) importData(e.target.files[0]);
     e.target.value = '';
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function () {
-      try { Store.importAll(reader.result); renderSettings(); renderCheck(); renderRecords(); renderStats(); toast('导入成功'); }
-      catch (err) { toast('导入失败：' + err.message); }
-    };
-    reader.readAsText(file);
   });
-
-  $('imgview-mask').addEventListener('click', closeImgView);
-  $('imgview-close').addEventListener('click', closeImgView);
+  $('btn-clear-all').addEventListener('click', clearAllData);
 }
 
-/* ================= 初始化 ================= */
 function init() {
   Store.seed();
   bindEvents();
   renderCheck();
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(function () {});
-  }
 }
-
 document.addEventListener('DOMContentLoaded', init);
