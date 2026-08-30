@@ -48,6 +48,79 @@ function calcTotal(scores) {
   return t;
 }
 
+/* ================= 图片存储 (IndexedDB) ================= */
+var ImgDB = {
+  _open: function () {
+    return new Promise(function (resolve, reject) {
+      var req = indexedDB.open('hygiene_imgs', 1);
+      req.onupgradeneeded = function () {
+        var db = req.result;
+        if (!db.objectStoreNames.contains('imgs')) db.createObjectStore('imgs');
+      };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error); };
+    });
+  },
+  put: function (id, data) {
+    return this._open().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction('imgs', 'readwrite');
+        tx.objectStore('imgs').put(data, id);
+        tx.oncomplete = function () { db.close(); resolve(); };
+        tx.onerror = function () { db.close(); reject(tx.error); };
+      });
+    });
+  },
+  get: function (id) {
+    return this._open().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var req = db.transaction('imgs').objectStore('imgs').get(id);
+        req.onsuccess = function () { db.close(); resolve(req.result); };
+        req.onerror = function () { db.close(); reject(req.error); };
+      });
+    });
+  },
+  del: function (id) {
+    return this._open().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction('imgs', 'readwrite');
+        tx.objectStore('imgs').delete(id);
+        tx.oncomplete = function () { db.close(); resolve(); };
+        tx.onerror = function () { db.close(); reject(tx.error); };
+      });
+    });
+  },
+  clear: function () {
+    return this._open().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction('imgs', 'readwrite');
+        tx.objectStore('imgs').clear();
+        tx.oncomplete = function () { db.close(); resolve(); };
+        tx.onerror = function () { db.close(); reject(tx.error); };
+      });
+    });
+  }
+};
+function compressImage(file, cb) {
+  var img = new Image();
+  var url = URL.createObjectURL(file);
+  img.onload = function () {
+    URL.revokeObjectURL(url);
+    var w = img.width, h = img.height;
+    var max = 1280;
+    if (w > max || h > max) {
+      if (w > h) { h = Math.round(h * max / w); w = max; }
+      else { w = Math.round(w * max / h); h = max; }
+    }
+    var canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    cb(canvas.toDataURL('image/jpeg', 0.7));
+  };
+  img.onerror = function () { URL.revokeObjectURL(url); cb(null); };
+  img.src = url;
+}
+
 /* ================= 预置数据 ================= */
 var DEFAULT_CLASSES = [
   { id: 'c01', name: '九2 杨明仙' }, { id: 'c02', name: '七6 熊贵云' }, { id: 'c03', name: '九7 左丽' },
@@ -87,9 +160,25 @@ var Store = {
   },
   delDayClass: function (date, classId) {
     var r = this.getRecords();
-    if (r[date] && r[date][classId]) { delete r[date][classId]; if (!Object.keys(r[date]).length) delete r[date]; this.saveRecords(r); }
+    if (r[date] && r[date][classId]) {
+      var rec = r[date][classId];
+      (rec.imgIds || []).forEach(function (id) { ImgDB.del(id).catch(function () {}); });
+      delete r[date][classId];
+      if (!Object.keys(r[date]).length) delete r[date];
+      this.saveRecords(r);
+    }
   },
-  clearDay: function (date) { var r = this.getRecords(); if (r[date]) { delete r[date]; this.saveRecords(r); } },
+  clearDay: function (date) {
+    var r = this.getRecords();
+    if (r[date]) {
+      Object.keys(r[date]).forEach(function (cid) {
+        var rec = r[date][cid];
+        (rec.imgIds || []).forEach(function (id) { ImgDB.del(id).catch(function () {}); });
+      });
+      delete r[date];
+      this.saveRecords(r);
+    }
+  },
   daySummary: function (date) {
     var day = this.getDay(date);
     var classes = this.getClasses();
@@ -228,7 +317,7 @@ function openScoreSheet(classId) {
   var existing = Store.getDayClass(state.checkDate, classId);
   var scores = {};
   SCORE_ITEMS.forEach(function (it) { scores[it.id] = existing && existing.scores[it.id] != null ? existing.scores[it.id] : it.max; });
-  state.scoreDraft = { scores: scores, note: existing ? (existing.note || '') : '', noteIds: existing && existing.noteIds ? existing.noteIds.slice() : [] };
+  state.scoreDraft = { scores: scores, note: existing ? (existing.note || '') : '', noteIds: existing && existing.noteIds ? existing.noteIds.slice() : [], imgs: [], oldImgIds: existing && existing.imgIds ? existing.imgIds.slice() : [] };
   SCORE_GROUPS.forEach(function (g) {
     var el = $('score-group-' + g.id);
     var html = '';
@@ -242,8 +331,14 @@ function openScoreSheet(classId) {
   renderNoteChips();
   $('score-note-input').value = state.scoreDraft.note;
   $('score-total-val').textContent = calcTotal(scores);
+  renderScoreImgs();
   $('score-mask').hidden = false;
   $('score-sheet').hidden = false;
+}
+function closeImgViewer() {
+  $('img-mask').hidden = true;
+  $('img-viewer').hidden = true;
+  $('img-viewer-src').src = '';
 }
 function closeScoreSheet() {
   $('score-mask').hidden = true;
@@ -289,21 +384,81 @@ function toggleNoteChip(nid) {
   $('score-note-input').value = draft.note;
   renderNoteChips();
 }
+function renderScoreImgs() {
+  var draft = state.scoreDraft;
+  var el = $('score-imgs');
+  var html = '';
+  (draft.imgs || []).forEach(function (data, i) {
+    html += '<div class="img-thumb"><img src="' + data + '" alt="照片"><span class="img-thumb-del" data-src="new" data-idx="' + i + '">✕</span></div>';
+  });
+  (draft.oldImgIds || []).forEach(function (id, i) {
+    html += '<div class="img-thumb"><img data-imgid="' + id + '" data-idx="' + i + '" alt="照片"><span class="img-thumb-del" data-src="old" data-idx="' + i + '">✕</span></div>';
+  });
+  el.innerHTML = html;
+  (draft.oldImgIds || []).forEach(function (id, i) {
+    ImgDB.get(id).then(function (data) {
+      var imgs = el.querySelectorAll('.img-thumb img');
+      if (data) {
+        for (var k = 0; k < imgs.length; k++) {
+          if (imgs[k].dataset.imgid === id) { imgs[k].src = data; break; }
+        }
+      }
+    }).catch(function () {});
+  });
+}
+function handleImgFile(file) {
+  var draft = state.scoreDraft;
+  if (!draft) return;
+  if ((draft.imgs.length + draft.oldImgIds.length) >= 3) { toast('最多 3 张照片'); return; }
+  compressImage(file, function (data) {
+    if (!data) { toast('图片处理失败'); return; }
+    draft.imgs.push(data);
+    renderScoreImgs();
+  });
+}
+function delDraftImg(kind, idx) {
+  var draft = state.scoreDraft;
+  if (!draft) return;
+  if (kind === 'new') { draft.imgs.splice(idx, 1); }
+  else {
+    var id = draft.oldImgIds[idx];
+    draft.oldImgIds.splice(idx, 1);
+    ImgDB.del(id).catch(function () {});
+  }
+  renderScoreImgs();
+}
+
 function onScoreSave() {
   var draft = state.scoreDraft;
   if (!draft) return;
   onScoreInput();
   var customNote = $('score-note-input').value.trim();
-  var rec = {
-    scores: draft.scores,
-    note: customNote,
-    noteIds: draft.noteIds,
-    time: nowTime()
-  };
-  Store.setDayClass(state.checkDate, state.scoringClassId, rec);
-  closeScoreSheet();
-  renderCheck();
-  toast('已保存 ' + calcTotal(draft.scores) + ' 分');
+  var imgIds = draft.oldImgIds ? draft.oldImgIds.slice() : [];
+  var imgs = draft.imgs || [];
+  function finish() {
+    var rec = {
+      scores: draft.scores,
+      note: customNote,
+      noteIds: draft.noteIds,
+      time: nowTime(),
+      imgIds: imgIds
+    };
+    Store.setDayClass(state.checkDate, state.scoringClassId, rec);
+    closeScoreSheet();
+    renderCheck();
+    toast('已保存 ' + calcTotal(draft.scores) + ' 分');
+  }
+  if (imgs.length) {
+    var pending = imgs.length;
+    imgs.forEach(function (data) {
+      var id = uid('img');
+      ImgDB.put(id, data).then(function () {
+        imgIds.push(id);
+        pending--;
+        if (pending === 0) finish();
+      }).catch(function () { pending--; if (pending === 0) finish(); });
+    });
+  } else finish();
 }
 /* ================= 总览页 ================= */
 function renderOverview() {
@@ -324,15 +479,24 @@ function renderOverview() {
   scored.forEach(function (s, i) {
     var rankTxt = i < 3 ? medals[i] : (i + 1) + '';
     var note = s.rec.note ? '<div class="ov-issues"><span class="ov-issue">📝 ' + esc(s.rec.note) + '</span></div>' : '';
+    var imgsHtml = '';
+    if (s.rec.imgIds && s.rec.imgIds.length) {
+      imgsHtml = '<div class="ov-imgs">' + s.rec.imgIds.map(function (id) {
+        return '<img class="ov-img" data-imgid="' + id + '" src="" alt="问题照片">';
+      }).join('') + '</div>';
+    }
     html += '<div class="ov-row"><div class="ov-head"><span class="ov-rank">' + rankTxt + '</span>' +
       '<span class="ov-area">' + esc(s.c.name) + '</span>' +
-      '<span class="ov-deduct">' + s.total + ' 分</span></div>' + note + '</div>';
+      '<span class="ov-deduct">' + s.total + ' 分</span></div>' + note + imgsHtml + '</div>';
   });
   var sum = 0;
   scored.forEach(function (s) { sum += s.total; });
   var avg = Math.round(sum / scored.length * 10) / 10;
   html += '<div class="ov-total">共 <b>' + scored.length + '</b> 个班级参评，平均 <b>' + avg + '</b> 分<br><span class="ov-total-sub">每班满分 100 分</span></div>';
   el.innerHTML = html;
+  el.querySelectorAll('.ov-img').forEach(function (img) {
+    ImgDB.get(img.dataset.imgid).then(function (data) { if (data && img.isConnected) img.src = data; }).catch(function () {});
+  });
 }
 
 /* ================= 记录页 ================= */
@@ -358,14 +522,23 @@ function renderRecords() {
       itemsHtml += '<div class="rec-group"><span class="rec-group-name">' + g.name + '</span><span class="rec-group-vals">' + esc(names) + '</span></div>';
     });
     var note = rec.note ? '<div class="rec-note">📝 ' + esc(rec.note) + '</div>' : '';
+    var imgsHtml = '';
+    if (rec.imgIds && rec.imgIds.length) {
+      imgsHtml = '<div class="rec-imgs">' + rec.imgIds.map(function (id) {
+        return '<img class="rec-img" data-imgid="' + id + '" src="" alt="问题照片">';
+      }).join('') + '</div>';
+    }
     html += '<div class="rec-card" data-cid="' + c.id + '">' +
       '<div class="rec-head"><span class="rec-class">' + esc(c.name) + '</span>' +
       '<span class="rec-total">' + total + ' 分</span>' +
       '<button class="rec-del" data-cid="' + c.id + '" aria-label="删除">✕</button></div>' +
-      itemsHtml + note +
+      itemsHtml + note + imgsHtml +
       '<div class="rec-time">' + esc(rec.time || '') + '</div></div>';
   });
   el.innerHTML = html;
+  el.querySelectorAll('.rec-img').forEach(function (img) {
+    ImgDB.get(img.dataset.imgid).then(function (data) { if (data && img.isConnected) img.src = data; }).catch(function () {});
+  });
 }
 /* ================= 统计页 ================= */
 function renderStats() {
@@ -529,6 +702,7 @@ function clearAllData() {
   localStorage.removeItem(KEYS.classes);
   localStorage.removeItem(KEYS.notes);
   localStorage.removeItem(KEYS.records);
+  ImgDB.clear().catch(function () {});
   Store.seed();
   renderCheck(); renderOverview(); renderRecords(); renderStats(); renderSettings();
   toast('已清空');
@@ -567,6 +741,24 @@ function bindEvents() {
   $('score-cancel').addEventListener('click', closeScoreSheet);
   $('score-save').addEventListener('click', onScoreSave);
   $('score-mask').addEventListener('click', closeScoreSheet);
+  $('score-img-camera').addEventListener('change', function (e) { if (e.target.files[0]) handleImgFile(e.target.files[0]); e.target.value = ''; });
+  $('score-img-album').addEventListener('change', function (e) { if (e.target.files[0]) handleImgFile(e.target.files[0]); e.target.value = ''; });
+  $('score-imgs').addEventListener('click', function (e) {
+    var del = e.target.closest('.img-thumb-del');
+    if (del) { delDraftImg(del.dataset.src, parseInt(del.dataset.idx, 10)); return; }
+    var thumb = e.target.closest('.img-thumb img');
+    if (thumb && thumb.src) { $('img-viewer-src').src = thumb.src; $('img-mask').hidden = false; $('img-viewer').hidden = false; }
+  });
+  $('ov-content').addEventListener('click', function (e) {
+    var img = e.target.closest('.ov-img');
+    if (img && img.src) { $('img-viewer-src').src = img.src; $('img-mask').hidden = false; $('img-viewer').hidden = false; }
+  });
+  $('rec-list').addEventListener('click', function (e) {
+    var img = e.target.closest('.rec-img');
+    if (img && img.src) { $('img-viewer-src').src = img.src; $('img-mask').hidden = false; $('img-viewer').hidden = false; }
+  });
+  $('img-viewer-close').addEventListener('click', closeImgViewer);
+  $('img-mask').addEventListener('click', closeImgViewer);
 
   $('rec-list').addEventListener('click', function (e) {
     var del = e.target.closest('.rec-del');
