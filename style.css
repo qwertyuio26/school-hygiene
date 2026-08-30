@@ -176,3 +176,21 @@ body {
 .img-viewer { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 92vw; max-width: 520px; z-index: 102; }
 .img-viewer img { width: 100%; border-radius: 14px; display: block; background: #000; max-height: 78vh; object-fit: contain; }
 .img-viewer .btn-primary { width: 100%; margin-top: 10px; }
+/* ===== 打分弹层每项备注/图片 ===== */
+.score-row-top { display: flex; align-items: center; }
+.score-row-extra { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.item-note { flex: 1; height: 36px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 0 10px; font-size: 14px; background: #f9fafb; min-width: 0; }
+.item-note:focus { outline: none; border-color: #22c55e; background: #fff; }
+.item-img-btn { width: 36px; height: 36px; border-radius: 8px; background: #f0fdf4; border: 1px solid #86efac; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+.item-img-btn:active { background: #dcfce7; }
+.item-img-ico { font-size: 17px; }
+.item-imgs { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.item-imgs .img-thumb { width: 52px; height: 52px; }
+.class-note.warn { color: #dc2626; }
+.ov-problems { margin-top: 8px; }
+.ov-problem { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 12px; padding: 3px 0; }
+.ov-problem-name { font-weight: 600; color: #374151; }
+.ov-problem-score { color: #dc2626; font-weight: 700; }
+.ov-problem-note { color: #b45309; background: #fffbeb; border-radius: 6px; padding: 1px 8px; }
+.ov-problem .ov-imgs { margin-top: 0; }
+.ov-problem .ov-img { width: 48px; height: 48px; }
