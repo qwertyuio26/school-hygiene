@@ -191,6 +191,13 @@
   <div class="note-chips" id="score-note-chips"></div>
   <input type="text" id="score-note-input" placeholder="自定义备注（选填）" maxlength="50">
 
+  <div class="step-label">📷 问题照片（最多 3 张，通报用）</div>
+  <div class="img-picker">
+    <label class="img-add"><input type="file" id="score-img-camera" accept="image/*" capture="environment" hidden><span class="img-add-ico">📷</span><span>拍照</span></label>
+    <label class="img-add"><input type="file" id="score-img-album" accept="image/*" hidden><span class="img-add-ico">🖼</span><span>相册</span></label>
+    <div class="img-thumbs" id="score-imgs"></div>
+  </div>
+
   <div class="sheet-actions">
     <button class="btn-ghost" id="score-cancel">取消</button>
     <button class="btn-primary" id="score-save">保存</button>
@@ -221,6 +228,12 @@
     <button class="btn-danger" id="issue-delete" hidden>删除</button>
     <button class="btn-primary" id="issue-save">保存</button>
   </div>
+</div>
+
+<div class="mask" id="img-mask" hidden></div>
+<div class="img-viewer" id="img-viewer" hidden>
+  <img id="img-viewer-src" alt="问题照片">
+  <button class="btn-primary" id="img-viewer-close">关闭</button>
 </div>
 
 <div id="toast" hidden></div>
